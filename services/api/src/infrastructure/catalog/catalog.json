@@ -1,0 +1,294 @@
+[
+  {
+    "id": "github",
+    "name": "GitHub MCP",
+    "description": "Acesso completo à API do GitHub — issues, PRs, repos, code scanning e muito mais",
+    "author": "GitHub",
+    "version": "latest",
+    "docker_image": "ghcr.io/github/github-mcp-server",
+    "credentials": [
+      {
+        "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "label": "GitHub Personal Access Token",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "playwright",
+    "name": "Playwright MCP",
+    "description": "Automação de browser headless com Chromium — navegação, extração de dados e testes web",
+    "author": "Microsoft",
+    "version": "latest",
+    "docker_image": "mcr.microsoft.com/playwright/mcp",
+    "credentials": []
+  },
+  {
+    "id": "fetch",
+    "name": "Fetch MCP",
+    "description": "Busca conteúdo de URLs e converte páginas web para Markdown de forma otimizada para LLMs",
+    "author": "Anthropic (modelcontextprotocol)",
+    "version": "latest",
+    "docker_image": "mcp/fetch",
+    "credentials": []
+  },
+  {
+    "id": "filesystem",
+    "name": "Filesystem MCP",
+    "description": "Operações seguras de leitura e escrita em arquivos locais com controle de acesso configurável",
+    "author": "Anthropic (modelcontextprotocol)",
+    "version": "latest",
+    "docker_image": "mcp/filesystem",
+    "credentials": []
+  },
+  {
+    "id": "git",
+    "name": "Git MCP",
+    "description": "Interação com repositórios Git — commits, branches, diffs e histórico de versões",
+    "author": "Anthropic (modelcontextprotocol)",
+    "version": "latest",
+    "docker_image": "mcp/git",
+    "credentials": []
+  },
+  {
+    "id": "memory",
+    "name": "Memory MCP",
+    "description": "Persistência de memória de longo prazo para agentes de IA usando grafos de conhecimento",
+    "author": "Anthropic (modelcontextprotocol)",
+    "version": "latest",
+    "docker_image": "mcp/memory",
+    "credentials": []
+  },
+  {
+    "id": "slack",
+    "name": "Slack MCP",
+    "description": "Integração com workspaces do Slack — mensagens, canais, threads e perfis de usuário",
+    "author": "Anthropic (modelcontextprotocol)",
+    "version": "latest",
+    "docker_image": "mcp/slack",
+    "credentials": [
+      {
+        "key": "SLACK_BOT_TOKEN",
+        "label": "Slack Bot OAuth Token",
+        "required": true
+      },
+      {
+        "key": "SLACK_TEAM_ID",
+        "label": "Slack Team ID",
+        "required": true
+      },
+      {
+        "key": "SLACK_CHANNEL_IDS",
+        "label": "Canal IDs (separados por vírgula)",
+        "required": false
+      }
+    ]
+  },
+  {
+    "id": "stripe",
+    "name": "Stripe MCP",
+    "description": "Gerenciamento de pagamentos, clientes, faturas, assinaturas e disputas via API do Stripe",
+    "author": "Stripe",
+    "version": "latest",
+    "docker_image": "mcp/stripe",
+    "credentials": [
+      {
+        "key": "STRIPE_SECRET_KEY",
+        "label": "Stripe Secret Key",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "brave-search",
+    "name": "Brave Search MCP",
+    "description": "Pesquisa na web com privacidade — buscas gerais, notícias, imagens e resultados locais via Brave",
+    "author": "Brave",
+    "version": "latest",
+    "docker_image": "mcp/brave-search",
+    "credentials": [
+      {
+        "key": "BRAVE_API_KEY",
+        "label": "Brave Search API Key",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "grafana",
+    "name": "Grafana MCP",
+    "description": "Consulta de dashboards, métricas, alertas e logs no Grafana via MCP",
+    "author": "Grafana Labs",
+    "version": "latest",
+    "docker_image": "mcp/grafana",
+    "credentials": [
+      {
+        "key": "GRAFANA_URL",
+        "label": "Grafana URL",
+        "required": true
+      },
+      {
+        "key": "GRAFANA_API_KEY",
+        "label": "Grafana API Key",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "postgres",
+    "name": "PostgreSQL MCP",
+    "description": "Acesso read-only a bancos de dados PostgreSQL — exploração de schema e queries em linguagem natural",
+    "author": "Anthropic (modelcontextprotocol)",
+    "version": "latest",
+    "docker_image": "mcp/postgres",
+    "credentials": [
+      {
+        "key": "DATABASE_URL",
+        "label": "PostgreSQL Connection URL",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "sequentialthinking",
+    "name": "Sequential Thinking MCP",
+    "description": "Raciocínio dinâmico passo a passo com revisão e ramificação — melhora planejamento de agentes",
+    "author": "Anthropic (modelcontextprotocol)",
+    "version": "latest",
+    "docker_image": "mcp/sequentialthinking",
+    "credentials": []
+  },
+  {
+    "id": "docker",
+    "name": "Docker MCP",
+    "description": "Gerencie containers, imagens, volumes e redes Docker diretamente via MCP",
+    "author": "Docker",
+    "version": "latest",
+    "docker_image": "mcp/docker",
+    "credentials": []
+  },
+  {
+    "id": "sonarqube",
+    "name": "SonarQube MCP",
+    "description": "Análise de qualidade e segurança de código — métricas, bugs, code smells e vulnerabilidades",
+    "author": "SonarSource",
+    "version": "latest",
+    "docker_image": "mcp/sonarqube",
+    "credentials": [
+      {
+        "key": "SONARQUBE_URL",
+        "label": "SonarQube URL",
+        "required": true
+      },
+      {
+        "key": "SONARQUBE_TOKEN",
+        "label": "SonarQube Token",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "markitdown",
+    "name": "MarkItDown MCP",
+    "description": "Converte documentos (PDF, DOCX, PPTX, HTML) para Markdown para processamento por LLMs",
+    "author": "Microsoft",
+    "version": "latest",
+    "docker_image": "mcp/markitdown",
+    "credentials": []
+  },
+  {
+    "id": "cloudwatch",
+    "name": "CloudWatch MCP",
+    "description": "Monitoramento de métricas, alarmes e logs do AWS CloudWatch via MCP",
+    "author": "AWS",
+    "version": "latest",
+    "docker_image": "mcp/cloudwatch-mcp-server",
+    "credentials": [
+      {
+        "key": "AWS_ACCESS_KEY_ID",
+        "label": "AWS Access Key ID",
+        "required": true
+      },
+      {
+        "key": "AWS_SECRET_ACCESS_KEY",
+        "label": "AWS Secret Access Key",
+        "required": true
+      },
+      {
+        "key": "AWS_REGION",
+        "label": "AWS Region",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "dynamodb",
+    "name": "DynamoDB MCP",
+    "description": "Operações no AWS DynamoDB — criação de tabelas, queries e gerenciamento de itens",
+    "author": "AWS",
+    "version": "latest",
+    "docker_image": "mcp/dynamodb-mcp-server",
+    "credentials": [
+      {
+        "key": "AWS_ACCESS_KEY_ID",
+        "label": "AWS Access Key ID",
+        "required": true
+      },
+      {
+        "key": "AWS_SECRET_ACCESS_KEY",
+        "label": "AWS Secret Access Key",
+        "required": true
+      },
+      {
+        "key": "AWS_REGION",
+        "label": "AWS Region",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "browser-mcp",
+    "name": "Browser MCP",
+    "description": "Automação de browser multi-sessão com suporte a stealth mode — ideal para scraping e testes",
+    "author": "graph-memory",
+    "version": "latest",
+    "docker_image": "ghcr.io/graph-memory/browser-mcp",
+    "credentials": [
+      {
+        "key": "BROWSER_MCP_API_KEY",
+        "label": "Browser MCP API Key",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "valkey",
+    "name": "Valkey MCP",
+    "description": "Cache de alta performance com estruturas de dados avançadas usando Valkey (fork do Redis)",
+    "author": "Valkey",
+    "version": "latest",
+    "docker_image": "mcp/valkey-mcp-server",
+    "credentials": [
+      {
+        "key": "VALKEY_URL",
+        "label": "Valkey Connection URL",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "memcached",
+    "name": "Memcached MCP",
+    "description": "Cache distribuído de alta velocidade com Memcached — get, set, delete e estatísticas",
+    "author": "Docker",
+    "version": "latest",
+    "docker_image": "mcp/memcached-mcp-server",
+    "credentials": [
+      {
+        "key": "MEMCACHED_URL",
+        "label": "Memcached URL",
+        "required": true
+      }
+    ]
+  }
+]

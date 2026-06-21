@@ -1,0 +1,20 @@
+{
+  "name": "mcpharbour",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm dev:stop && concurrently -k -n backend,web -c blue,green \"pnpm dev:backend\" \"pnpm dev:web\"",
+    "dev:stop": "bash scripts/dev-stop.sh",
+    "dev:tauri": "bash scripts/prepare-tauri-dev.sh && bash scripts/dev-stop.sh && pnpm dev:desktop",
+    "dev:backend": "cd services/api && uv run uvicorn main:app --reload --host 127.0.0.1 --port 8741 --app-dir src",
+    "dev:web": "pnpm --filter @mcpharbour/desktop dev",
+    "dev:desktop": "pnpm --filter @mcpharbour/desktop tauri dev",
+    "build": "pnpm --filter @mcpharbour/desktop build",
+    "build:dmg": "bash infra/packaging/macos/build-dmg.sh",
+    "test": "pnpm test:backend && pnpm test:frontend",
+    "test:backend": "cd services/api && uv run pytest",
+    "test:frontend": "pnpm --filter @mcpharbour/desktop test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

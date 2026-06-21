@@ -1,0 +1,164 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version (e.g. 0.1.0) — manual runs do not publish
+        required: false
+        default: ""
+      platform:
+        description: Target platform
+        required: true
+        default: macos-latest
+        type: choice
+        options:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+
+jobs:
+  build-macos:
+    if: github.event_name == 'push' || inputs.platform == 'macos-latest'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install deps
+        run: |
+          cd services/api && uv sync --all-extras
+          pnpm install
+      - name: Build sidecar + DMG
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: bash infra/packaging/macos/build-dmg.sh
+      - name: Notarize DMG (optional)
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          if [[ -z "${APPLE_ID:-}" || -z "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]]; then
+            echo "Skipping notarization (Apple secrets not configured)"
+            exit 0
+          fi
+          DMG=$(find apps/desktop/src-tauri/target/release/bundle/dmg -name "*.dmg" | head -1)
+          bash infra/packaging/macos/notarize-dmg.sh "${DMG}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/dmg/**
+            apps/desktop/src-tauri/target/release/bundle/macos/**
+
+  build-windows:
+    if: github.event_name == 'push' || inputs.platform == 'windows-latest'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install deps
+        run: |
+          cd services/api
+          uv sync --all-extras
+          cd ..
+          pnpm install
+      - name: Build sidecar + NSIS installer
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: bash infra/packaging/windows/build-installer.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: apps/desktop/src-tauri/target/release/bundle/nsis/**
+
+  build-linux:
+    if: github.event_name == 'push' || inputs.platform == 'ubuntu-latest'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
+            libssl-dev libayatana-appindicator3-dev
+      - name: Install deps
+        run: |
+          cd services/api && uv sync --all-extras
+          pnpm install
+      - name: Build sidecar + AppImage
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: bash infra/packaging/linux/build-appimage.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: apps/desktop/src-tauri/target/release/bundle/appimage/**
+
+  publish:
+    needs: [build-macos, build-windows, build-linux]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+      - name: Flatten release artifacts
+        run: |
+          mkdir -p release-flat
+          find release -type f \( -name "*.dmg" -o -name "*.sig" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.tar.gz" \) -exec cp {} release-flat/ \;
+          ls -la release-flat
+      - name: Generate latest.json
+        env:
+          RELEASE_NOTES: MCP Harbor ${{ github.ref_name }}
+          RELEASE_URL_PREFIX: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          bash infra/packaging/generate-latest-json.sh "${VERSION}" release-flat release-flat/latest.json
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-flat/**
+          generate_release_notes: true

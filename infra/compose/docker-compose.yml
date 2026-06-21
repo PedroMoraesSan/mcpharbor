@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: mcpharbour-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mcpharbour}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mcpharbour}
+      POSTGRES_DB: ${POSTGRES_DB:-mcpharbour}
+    volumes:
+      - mcpharbour_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mcpharbour}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mcpharbour_pgdata:

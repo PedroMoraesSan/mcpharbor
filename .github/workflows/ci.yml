@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+      - name: Install backend deps
+        run: cd services/api && uv sync --all-extras
+      - name: Lint
+        run: cd services/api && uv run ruff check src tests
+      - name: Format
+        run: cd services/api && uv run ruff format --check src tests
+      - name: Test
+        run: cd services/api && uv run pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install deps
+        run: pnpm install
+      - name: Typecheck
+        run: cd apps/desktop && pnpm exec tsc --noEmit
+      - name: Build
+        run: cd apps/desktop && pnpm build
+      - name: Test
+        run: cd apps/desktop && pnpm test
+
+  tauri:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check Tauri crate
+        run: cd apps/desktop/src-tauri && cargo check
