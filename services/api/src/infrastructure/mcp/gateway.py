@@ -31,6 +31,8 @@ STARTUP_TIMEOUT_SECONDS = 120.0
 @dataclass
 class GatewaySession:
     mcp_id: UUID
+    catalog_id: str
+    name: str
     port: int
     _task: asyncio.Task[None] = field(repr=False)
 
@@ -163,9 +165,15 @@ class McpGatewayManager:
             "Ensure Docker Desktop is running and try again."
         )
 
+    @property
+    def sessions(self) -> dict[UUID, GatewaySession]:
+        return dict(self._sessions)
+
     async def start(
         self,
         mcp_id: UUID,
+        catalog_id: str,
+        name: str,
         command: str,
         args: list[str],
         env: dict[str, str],
@@ -194,7 +202,7 @@ class McpGatewayManager:
                 await task
             raise
 
-        session = GatewaySession(mcp_id=mcp_id, port=port, _task=task)
+        session = GatewaySession(mcp_id=mcp_id, catalog_id=catalog_id, name=name, port=port, _task=task)
         self._sessions[mcp_id] = session
         logger.info(
             "mcp_gateway_ready",

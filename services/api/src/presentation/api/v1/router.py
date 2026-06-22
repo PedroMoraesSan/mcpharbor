@@ -1,9 +1,11 @@
 import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
+
+from fastapi import Request
 
 from presentation.api.dependencies import UseCaseContainer, get_use_cases
 from presentation.schemas.mcp_schemas import (
@@ -254,6 +256,12 @@ async def update_policy(
     if dto.allowed_servers is not None:
         servers = [ServerPolicySchema(**s) for s in dto.allowed_servers]
     return AgentPolicyResponse(agent_id=dto.agent_id, allowed_servers=servers)
+
+
+@router.post("/mcp")
+async def unified_mcp(body: dict, request: Request, uc: UseCaseContainer = Depends(get_use_cases)):
+    agent = getattr(request.state, "agent", None)
+    return await uc.unified_gateway.handle_jsonrpc(body, agent)
 
 
 @router.get("/dashboard/stats", response_model=DashboardStatsResponse)

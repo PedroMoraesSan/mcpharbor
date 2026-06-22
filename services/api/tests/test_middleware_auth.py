@@ -51,15 +51,16 @@ async def test_admin_routes_are_public(client):
 
 @pytest.mark.asyncio
 async def test_protected_route_returns_401_without_token(client):
-    resp = await client.get("/api/v1/mcp")
+    resp = await client.post("/api/v1/mcp", json={})
     assert resp.status_code == 401
     assert resp.json()["detail"]["code"] == "unauthorized"
 
 
 @pytest.mark.asyncio
 async def test_protected_route_returns_401_with_invalid_token(client):
-    resp = await client.get(
+    resp = await client.post(
         "/api/v1/mcp",
+        json={},
         headers={"Authorization": "Bearer invalid_token_123"},
     )
     assert resp.status_code == 401
@@ -68,14 +69,16 @@ async def test_protected_route_returns_401_with_invalid_token(client):
 
 @pytest.mark.asyncio
 async def test_protected_route_with_malformed_auth_header(client):
-    resp = await client.get(
+    resp = await client.post(
         "/api/v1/mcp",
+        json={},
         headers={"Authorization": "NotBearer something"},
     )
     assert resp.status_code == 401
 
-    resp = await client.get(
+    resp = await client.post(
         "/api/v1/mcp",
+        json={},
         headers={"Authorization": ""},
     )
     assert resp.status_code == 401
@@ -99,11 +102,14 @@ async def test_protected_route_passes_middleware_with_valid_token(test_database_
     app = create_app()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        resp = await ac.get(
+        resp = await ac.post(
             "/api/v1/mcp",
+            json={},
             headers={"Authorization": f"Bearer {raw_token}"},
         )
 
-    assert resp.status_code == 404
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data.get("jsonrpc") == "2.0"
 
     await engine.dispose()

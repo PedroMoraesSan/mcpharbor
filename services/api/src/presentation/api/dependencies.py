@@ -18,6 +18,7 @@ from domain.services.docker_service import DockerService
 from infrastructure.docker.docker_service import DockerSDKService, JsonRegistryService
 from infrastructure.integration.cursor_service import CursorIntegrationService
 from infrastructure.keyring.secret_service import KeyringSecretService
+from infrastructure.mcp.unified_gateway import UnifiedMcpGateway
 from infrastructure.persistence.database import async_session_factory
 from infrastructure.persistence.repositories import (
     SQLAlchemyAgentRepository,
@@ -26,6 +27,7 @@ from infrastructure.persistence.repositories import (
     SQLAlchemyMCPRepository,
     SQLAlchemyPolicyRepository,
 )
+from infrastructure.policy.policy_service import PolicyEvaluationService
 from shared.settings import settings
 
 
@@ -53,6 +55,7 @@ class UseCaseContainer:
     delete_agent: DeleteAgentUseCase
     get_policy: GetPolicyUseCase
     update_policy: UpdatePolicyUseCase
+    unified_gateway: UnifiedMcpGateway
 
 
 def build_container(session: AsyncSession) -> UseCaseContainer:
@@ -91,6 +94,7 @@ def build_container(session: AsyncSession) -> UseCaseContainer:
         local_connection=GetLocalConnectionInfoUseCase(mcp_repo, credential_repo),
         dashboard=GetDashboardStatsUseCase(mcp_repo),
         docker=DockerSDKService(settings.docker_host),
+        unified_gateway=UnifiedMcpGateway(PolicyEvaluationService(policy_repo)),
         list_agents=ListAgentsUseCase(agent_repo),
         create_agent=CreateAgentUseCase(agent_repo),
         delete_agent=DeleteAgentUseCase(agent_repo),

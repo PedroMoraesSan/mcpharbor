@@ -33,6 +33,7 @@ a = Analysis(
         'application.use_cases.agents',
         'application.use_cases.policies',
         'infrastructure.mcp.gateway',
+        'infrastructure.mcp.unified_gateway',
         'infrastructure.mcp.wrapper_runner',
         'infrastructure.mcp.wrapper_command',
         'infrastructure.policy.policy_service',

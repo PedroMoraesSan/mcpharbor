@@ -181,6 +181,8 @@ async def test_start_mcp_success(mock_gateway):
     mock_gateway.start = AsyncMock(
         return_value=GatewaySession(
             mcp_id=mcp_id,
+            catalog_id=mcp.catalog_id,
+            name=mcp.name,
             port=18042,
             _task=MagicMock(done=MagicMock(return_value=False)),
         )
@@ -235,6 +237,8 @@ async def test_start_mcp_without_required_credentials(mock_gateway):
     mock_gateway.start = AsyncMock(
         return_value=GatewaySession(
             mcp_id=mcp_id,
+            catalog_id=mcp.catalog_id,
+            name=mcp.name,
             port=18043,
             _task=MagicMock(done=MagicMock(return_value=False)),
         )
