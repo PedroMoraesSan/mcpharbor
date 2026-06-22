@@ -5,6 +5,7 @@ import httpx
 from domain.services.auth_service import AgentContext
 from domain.services.policy_service import PolicyService
 from infrastructure.mcp.gateway import GatewaySession, gateway_manager
+from infrastructure.mcp.gpars import authorization_denied, server_unavailable
 from shared.logging import get_logger
 
 logger = get_logger(__name__)
@@ -87,10 +88,10 @@ class UnifiedMcpGateway:
 
         entry = self._tool_map.get(tool_name)
         if not entry:
-            return self._jsonrpc(req_id, result={
-                "content": [{"type": "text", "text": f"Tool '{tool_name}' not found on any available server"}],
-                "isError": True,
-            })
+            return server_unavailable(
+                req_id,
+                f"Tool '{tool_name}' not found on any available server",
+            )
 
         catalog_id, mcp_id = entry
 
@@ -102,17 +103,14 @@ class UnifiedMcpGateway:
                 arguments=arguments,
             )
             if not allowed:
-                return self._jsonrpc(req_id, result={
-                    "content": [{"type": "text", "text": f"Tool '{tool_name}' is not allowed for agent '{agent.agent_name}'"}],
-                    "isError": True,
-                })
+                return authorization_denied(
+                    req_id,
+                    f"Tool '{tool_name}' is not allowed for agent '{agent.agent_name}'",
+                )
 
         session = gateway_manager.sessions.get(mcp_id)
         if not session:
-            return self._jsonrpc(req_id, result={
-                "content": [{"type": "text", "text": "Server is no longer available"}],
-                "isError": True,
-            })
+            return server_unavailable(req_id, "Server has been removed")
 
         data = await self._call_mcp(session, {
             "method": "tools/call",
@@ -121,10 +119,7 @@ class UnifiedMcpGateway:
             "params": params,
         })
         if data is None:
-            return self._jsonrpc(req_id, result={
-                "content": [{"type": "text", "text": "Server did not respond"}],
-                "isError": True,
-            })
+            return server_unavailable(req_id, f"Server '{catalog_id}' did not respond")
 
         result = data.get("result", data)
         return self._jsonrpc(req_id, result=result)
