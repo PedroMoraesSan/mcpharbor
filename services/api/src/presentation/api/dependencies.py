@@ -2,12 +2,14 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from application.use_cases.agents import CreateAgentUseCase, DeleteAgentUseCase, ListAgentsUseCase
 from application.use_cases.credentials import SaveCredentialUseCase, ValidateCredentialsUseCase
 from application.use_cases.expose_mcp import ExposeMCPUseCase
 from application.use_cases.install_mcp import InstallMCPUseCase
 from application.use_cases.integrations import ConnectCursorUseCase, GetDashboardStatsUseCase, GetLocalConnectionInfoUseCase
 from application.use_cases.list_catalog import ListCatalogUseCase, ListInstalledMCPsUseCase
 from application.use_cases.logs_metrics import GetMCPLogsUseCase, GetMCPMetricsUseCase
+from application.use_cases.policies import GetPolicyUseCase, UpdatePolicyUseCase
 from application.use_cases.start_mcp import StartMCPUseCase
 from application.use_cases.stop_mcp import RestartMCPUseCase, StopMCPUseCase
 from application.use_cases.uninstall_mcp import UninstallMCPUseCase
@@ -18,9 +20,11 @@ from infrastructure.integration.cursor_service import CursorIntegrationService
 from infrastructure.keyring.secret_service import KeyringSecretService
 from infrastructure.persistence.database import async_session_factory
 from infrastructure.persistence.repositories import (
+    SQLAlchemyAgentRepository,
     SQLAlchemyCredentialRepository,
     SQLAlchemyIntegrationRepository,
     SQLAlchemyMCPRepository,
+    SQLAlchemyPolicyRepository,
 )
 from shared.settings import settings
 
@@ -44,12 +48,19 @@ class UseCaseContainer:
     local_connection: GetLocalConnectionInfoUseCase
     dashboard: GetDashboardStatsUseCase
     docker: DockerService
+    list_agents: ListAgentsUseCase
+    create_agent: CreateAgentUseCase
+    delete_agent: DeleteAgentUseCase
+    get_policy: GetPolicyUseCase
+    update_policy: UpdatePolicyUseCase
 
 
 def build_container(session: AsyncSession) -> UseCaseContainer:
     mcp_repo = SQLAlchemyMCPRepository(session)
     credential_repo = SQLAlchemyCredentialRepository(session)
     integration_repo = SQLAlchemyIntegrationRepository(session)
+    agent_repo = SQLAlchemyAgentRepository(session)
+    policy_repo = SQLAlchemyPolicyRepository(session)
     registry = JsonRegistryService()
     docker = DockerSDKService(settings.docker_host)
     secret = KeyringSecretService()
@@ -80,6 +91,11 @@ def build_container(session: AsyncSession) -> UseCaseContainer:
         local_connection=GetLocalConnectionInfoUseCase(mcp_repo, credential_repo),
         dashboard=GetDashboardStatsUseCase(mcp_repo),
         docker=DockerSDKService(settings.docker_host),
+        list_agents=ListAgentsUseCase(agent_repo),
+        create_agent=CreateAgentUseCase(agent_repo),
+        delete_agent=DeleteAgentUseCase(agent_repo),
+        get_policy=GetPolicyUseCase(policy_repo),
+        update_policy=UpdatePolicyUseCase(policy_repo),
     )
 
 

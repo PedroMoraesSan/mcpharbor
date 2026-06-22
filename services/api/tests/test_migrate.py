@@ -72,5 +72,5 @@ def test_upgrade_stamps_existing_sqlite_schema_without_version():
 
         with engine.connect() as conn:
             assert conn.execute(text("SELECT version_num FROM alembic_version")).fetchall() == [
-                ("001",)
+                ("002",)
             ]

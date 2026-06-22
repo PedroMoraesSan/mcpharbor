@@ -144,6 +144,10 @@ export interface LocalConnectionInfo {
   gateway_running: boolean;
 }
 
+export function requestRaw<T>(path: string, options?: RequestInit): Promise<T> {
+  return request<T>(path, options);
+}
+
 export function getLogsStreamUrl(mcpId: string): string {
   return `${getApiBaseUrl()}/api/v1/mcps/${mcpId}/logs/stream`;
 }

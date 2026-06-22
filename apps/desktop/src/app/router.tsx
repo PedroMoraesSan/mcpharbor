@@ -7,6 +7,8 @@ import { CatalogPage } from "@/pages/catalog/CatalogPage";
 import { LogsPage } from "@/pages/logs/LogsPage";
 import { IntegrationsPage } from "@/pages/integrations/IntegrationsPage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
+import { AgentsPage } from "@/pages/agents/AgentsPage";
+import { AgentPolicyPage } from "@/pages/agents/AgentPolicyPage";
 
 export const router = createBrowserRouter([
   {
@@ -19,6 +21,8 @@ export const router = createBrowserRouter([
       { path: "catalog", element: <CatalogPage /> },
       { path: "logs", element: <LogsPage /> },
       { path: "integrations", element: <IntegrationsPage /> },
+      { path: "agents", element: <AgentsPage /> },
+      { path: "agents/:agentId/policy", element: <AgentPolicyPage /> },
       { path: "settings", element: <SettingsPage /> },
     ],
   },

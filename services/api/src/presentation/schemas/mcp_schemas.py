@@ -3,6 +3,42 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
+class ToolRuleSchema(BaseModel):
+    tool_name: str
+    allowed_arguments: list[str] | None = None
+
+
+class ServerPolicySchema(BaseModel):
+    server_id: str
+    allowed_tools: list[ToolRuleSchema] | None = None
+
+
+class AgentPolicyResponse(BaseModel):
+    agent_id: str
+    allowed_servers: list[ServerPolicySchema] | None = None
+
+
+class AgentPolicyUpdateRequest(BaseModel):
+    allowed_servers: list[ServerPolicySchema] | None = None
+
+
+class AgentResponse(BaseModel):
+    id: UUID
+    name: str
+    created_at: str
+
+
+class AgentCreateResponse(BaseModel):
+    id: UUID
+    name: str
+    token: str
+    created_at: str
+
+
+class AgentCreateRequest(BaseModel):
+    name: str
+
+
 class CatalogEntryResponse(BaseModel):
     id: str
     name: str

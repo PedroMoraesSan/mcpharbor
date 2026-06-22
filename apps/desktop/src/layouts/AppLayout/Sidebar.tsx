@@ -5,6 +5,7 @@ import {
   Library,
   ScrollText,
   Plug,
+  Shield,
   Settings,
 } from "lucide-react";
 import { BrandMark } from "@/components/brand/brand-mark";
@@ -16,6 +17,7 @@ const navItems = [
   { to: "/catalog", label: "Catalog", icon: Library },
   { to: "/logs", label: "Logs", icon: ScrollText },
   { to: "/integrations", label: "Integrations", icon: Plug },
+  { to: "/agents", label: "Access Control", icon: Shield },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 

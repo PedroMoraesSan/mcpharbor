@@ -1,3 +1,4 @@
+import json
 from uuid import UUID
 
 from sqlalchemy import select
@@ -5,11 +6,75 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.entities.credential import Credential, Integration
 from domain.entities.mcp import MCP
+from domain.entities.policy import Agent, AgentPolicy, ServerPolicy, ToolRule
 from domain.repositories.credential_repository import CredentialRepository
 from domain.repositories.integration_repository import IntegrationRepository
 from domain.repositories.mcp_repository import MCPRepository
+from domain.repositories.policy_repository import AgentRepository, PolicyRepository
 from domain.value_objects.enums import IntegrationClient, MCPStatus
-from infrastructure.persistence.models import CredentialModel, InstalledMCPModel, IntegrationModel
+from infrastructure.persistence.models import (
+    AgentModel,
+    CredentialModel,
+    InstalledMCPModel,
+    IntegrationModel,
+    PolicyModel,
+)
+
+
+def _agent_from_model(model: AgentModel) -> Agent:
+    return Agent(
+        id=model.id,
+        name=model.name,
+        token_hash=model.token_hash,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+def _policy_rules_to_json(policy: AgentPolicy) -> str:
+    if policy.allowed_servers is None:
+        return json.dumps({"allowed_servers": None})
+    servers = []
+    for s in policy.allowed_servers:
+        if s.allowed_tools is None:
+            servers.append({"server_id": s.server_id, "allowed_tools": None})
+        else:
+            tools = [
+                {
+                    "tool_name": t.tool_name,
+                    "allowed_arguments": t.allowed_arguments,
+                }
+                for t in s.allowed_tools
+            ]
+            servers.append({"server_id": s.server_id, "allowed_tools": tools})
+    return json.dumps({"allowed_servers": servers})
+
+
+def _json_to_policy_rules(agent_id: str, raw: str) -> AgentPolicy:
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return AgentPolicy(agent_id=agent_id, allowed_servers=None)
+
+    servers_raw = data.get("allowed_servers")
+    if servers_raw is None:
+        return AgentPolicy(agent_id=agent_id, allowed_servers=None)
+
+    servers = []
+    for s in servers_raw:
+        tools_raw = s.get("allowed_tools")
+        if tools_raw is None:
+            servers.append(ServerPolicy(server_id=s["server_id"], allowed_tools=None))
+        else:
+            tools = [
+                ToolRule(
+                    tool_name=t["tool_name"],
+                    allowed_arguments=t.get("allowed_arguments"),
+                )
+                for t in tools_raw
+            ]
+            servers.append(ServerPolicy(server_id=s["server_id"], allowed_tools=tools))
+    return AgentPolicy(agent_id=agent_id, allowed_servers=servers)
 
 
 def _to_mcp_entity(model: InstalledMCPModel) -> MCP:
@@ -202,3 +267,78 @@ class SQLAlchemyIntegrationRepository(IntegrationRepository):
             config_path=model.config_path,
             connected_at=model.connected_at,
         )
+
+
+class SQLAlchemyAgentRepository(AgentRepository):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_by_id(self, agent_id: UUID) -> Agent | None:
+        model = await self._session.get(AgentModel, agent_id)
+        return _agent_from_model(model) if model else None
+
+    async def get_by_token_hash(self, token_hash: str) -> Agent | None:
+        stmt = select(AgentModel).where(AgentModel.token_hash == token_hash)
+        result = await self._session.scalar(stmt)
+        return _agent_from_model(result) if result else None
+
+    async def list_all(self) -> list[Agent]:
+        stmt = select(AgentModel).order_by(AgentModel.created_at.desc())
+        results = await self._session.scalars(stmt)
+        return [_agent_from_model(r) for r in results.all()]
+
+    async def save(self, agent: Agent) -> Agent:
+        model = await self._session.get(AgentModel, agent.id)
+        if model is None:
+            model = AgentModel(id=agent.id)
+            self._session.add(model)
+
+        model.name = agent.name
+        model.token_hash = agent.token_hash
+        model.created_at = agent.created_at
+        model.updated_at = agent.updated_at
+
+        await self._session.commit()
+        await self._session.refresh(model)
+        return _agent_from_model(model)
+
+    async def delete(self, agent_id: UUID) -> None:
+        model = await self._session.get(AgentModel, agent_id)
+        if model:
+            await self._session.delete(model)
+            await self._session.commit()
+
+
+class SQLAlchemyPolicyRepository(PolicyRepository):
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_by_agent_id(self, agent_id: str) -> AgentPolicy | None:
+        stmt = select(PolicyModel).where(PolicyModel.agent_id == agent_id)
+        model = await self._session.scalar(stmt)
+        if not model:
+            return None
+        return _json_to_policy_rules(str(model.agent_id), model.rules_json)
+
+    async def save(self, policy: AgentPolicy) -> AgentPolicy:
+        agent_uuid = UUID(policy.agent_id)
+        model = (
+            await self._session.scalar(
+                select(PolicyModel).where(PolicyModel.agent_id == agent_uuid)
+            )
+        )
+        if model is None:
+            model = PolicyModel(agent_id=agent_uuid)
+            self._session.add(model)
+
+        model.rules_json = _policy_rules_to_json(policy)
+        await self._session.commit()
+        await self._session.refresh(model)
+        return _json_to_policy_rules(str(model.agent_id), model.rules_json)
+
+    async def delete_by_agent_id(self, agent_id: str) -> None:
+        stmt = select(PolicyModel).where(PolicyModel.agent_id == agent_id)
+        model = await self._session.scalar(stmt)
+        if model:
+            await self._session.delete(model)
+            await self._session.commit()

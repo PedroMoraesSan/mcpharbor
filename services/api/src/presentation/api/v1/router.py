@@ -7,6 +7,11 @@ from sse_starlette.sse import EventSourceResponse
 
 from presentation.api.dependencies import UseCaseContainer, get_use_cases
 from presentation.schemas.mcp_schemas import (
+    AgentCreateRequest,
+    AgentCreateResponse,
+    AgentPolicyResponse,
+    AgentPolicyUpdateRequest,
+    AgentResponse,
     CatalogEntryResponse,
     ConnectCursorRequest,
     CredentialsRequest,
@@ -15,6 +20,7 @@ from presentation.schemas.mcp_schemas import (
     LocalConnectionInfoResponse,
     MCPResponse,
     MetricsResponse,
+    ServerPolicySchema,
     SettingsResponse,
     SuccessMessageResponse,
 )
@@ -198,6 +204,56 @@ async def get_local_connection(mcp_id: UUID, uc: UseCaseContainer = Depends(get_
     result = await uc.local_connection.execute(mcp_id)
     dto = _handle_result(result)
     return LocalConnectionInfoResponse(**dto.__dict__)
+
+
+@router.get("/agents", response_model=list[AgentResponse])
+async def list_agents(uc: UseCaseContainer = Depends(get_use_cases)):
+    agents = await uc.list_agents.execute()
+    return [AgentResponse(**a.__dict__) for a in agents]
+
+
+@router.post("/agents", response_model=AgentCreateResponse, status_code=201)
+async def create_agent(body: AgentCreateRequest, uc: UseCaseContainer = Depends(get_use_cases)):
+    result = await uc.create_agent.execute(body.name)
+    data = _handle_result(result)
+    return AgentCreateResponse(
+        id=data.id,
+        name=data.name,
+        token=data.token,
+        created_at=data.created_at,
+    )
+
+
+@router.delete("/agents/{agent_id}", response_model=SuccessMessageResponse)
+async def delete_agent(agent_id: UUID, uc: UseCaseContainer = Depends(get_use_cases)):
+    result = await uc.delete_agent.execute(agent_id)
+    data = _handle_result(result)
+    return SuccessMessageResponse(message=data["message"])
+
+
+@router.get("/agents/{agent_id}/policy", response_model=AgentPolicyResponse)
+async def get_policy(agent_id: str, uc: UseCaseContainer = Depends(get_use_cases)):
+    result = await uc.get_policy.execute(agent_id)
+    dto = _handle_result(result)
+    servers = None
+    if dto.allowed_servers is not None:
+        servers = [ServerPolicySchema(**s) for s in dto.allowed_servers]
+    return AgentPolicyResponse(agent_id=dto.agent_id, allowed_servers=servers)
+
+
+@router.put("/agents/{agent_id}/policy", response_model=AgentPolicyResponse)
+async def update_policy(
+    agent_id: str,
+    body: AgentPolicyUpdateRequest,
+    uc: UseCaseContainer = Depends(get_use_cases),
+):
+    raw = [s.model_dump() for s in body.allowed_servers] if body.allowed_servers is not None else None
+    result = await uc.update_policy.execute(agent_id, raw)
+    dto = _handle_result(result)
+    servers = None
+    if dto.allowed_servers is not None:
+        servers = [ServerPolicySchema(**s) for s in dto.allowed_servers]
+    return AgentPolicyResponse(agent_id=dto.agent_id, allowed_servers=servers)
 
 
 @router.get("/dashboard/stats", response_model=DashboardStatsResponse)

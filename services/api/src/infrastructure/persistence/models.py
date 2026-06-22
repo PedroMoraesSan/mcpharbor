@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -9,6 +10,32 @@ from shared.time import utc_now
 
 class Base(DeclarativeBase):
     pass
+
+
+class AgentModel(Base):
+    __tablename__ = "agents"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
+
+    policy: Mapped["PolicyModel | None"] = relationship(back_populates="agent", uselist=False)
+
+
+class PolicyModel(Base):
+    __tablename__ = "policies"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    agent_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("agents.id"), unique=True, nullable=False
+    )
+    rules_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
+
+    agent: Mapped["AgentModel"] = relationship(back_populates="policy")
 
 
 class InstalledMCPModel(Base):
