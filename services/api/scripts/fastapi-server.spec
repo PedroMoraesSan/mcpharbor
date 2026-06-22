@@ -36,6 +36,8 @@ a = Analysis(
         'infrastructure.mcp.wrapper_runner',
         'infrastructure.mcp.wrapper_command',
         'infrastructure.policy.policy_service',
+        'infrastructure.auth.token_service',
+        'presentation.api.middleware.auth',
         'keyring',
         'presentation',
         'shared',

@@ -1,10 +1,9 @@
-import hashlib
-import secrets
 from uuid import UUID, uuid4
 
 from application.dto.agent_dto import AgentDTO, AgentWithTokenDTO
 from domain.entities.policy import Agent
 from domain.repositories.policy_repository import AgentRepository
+from infrastructure.auth.token_service import generate_token
 from shared.result import Failure, Result, Success
 from shared.time import utc_now
 
@@ -30,8 +29,7 @@ class CreateAgentUseCase:
         self._agent_repo = agent_repo
 
     async def execute(self, name: str) -> Result[AgentWithTokenDTO]:
-        raw_token = f"harbour_sk_{secrets.token_urlsafe(32)}"
-        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        raw_token, token_hash = generate_token()
 
         agent = Agent(
             id=uuid4(),
