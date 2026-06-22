@@ -37,32 +37,6 @@ def wrapper_command(catalog_id: str) -> tuple[str, list[str]]:
     return sys.executable, [wrapper_path(), catalog_id]
 
 
-def build_gateway_argv(
-    port: int,
-    env: dict[str, str],
-    command: str,
-    args: list[str],
-) -> list[str]:
-    """Build argv for spawning the local MCP HTTP gateway (mcp-proxy)."""
-    proxy_args = [
-        "--port",
-        str(port),
-        "--host",
-        "127.0.0.1",
-        "--pass-environment",
-        "--log-level",
-        "WARNING",
-    ]
-    for key, value in env.items():
-        proxy_args.extend(["-e", key, value])
-    proxy_args.append("--")
-    proxy_args.extend([command, *args])
-
-    if uses_sidecar_cli():
-        return [sys.executable, "--run-gateway", *proxy_args]
-    return [sys.executable, "-m", "mcp_proxy", *proxy_args]
-
-
 def install_wrapper_script() -> str:
     """Write/update the on-disk wrapper script and return its path."""
     bin_dir = settings.wrapper_bin_dir

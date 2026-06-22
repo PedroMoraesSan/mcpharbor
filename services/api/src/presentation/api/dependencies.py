@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from application.use_cases.credentials import SaveCredentialUseCase, ValidateCredentialsUseCase
+from application.use_cases.expose_mcp import ExposeMCPUseCase
 from application.use_cases.install_mcp import InstallMCPUseCase
 from application.use_cases.integrations import ConnectCursorUseCase, GetDashboardStatsUseCase, GetLocalConnectionInfoUseCase
 from application.use_cases.list_catalog import ListCatalogUseCase, ListInstalledMCPsUseCase
@@ -31,6 +32,7 @@ class UseCaseContainer:
     install: InstallMCPUseCase
     uninstall: UninstallMCPUseCase
     start: StartMCPUseCase
+    expose: ExposeMCPUseCase
     stop: StopMCPUseCase
     restart: RestartMCPUseCase
     update: UpdateMCPUseCase
@@ -62,6 +64,7 @@ def build_container(session: AsyncSession) -> UseCaseContainer:
             mcp_repo, credential_repo, integration_repo, integration, docker, secret
         ),
         start=start,
+        expose=ExposeMCPUseCase(mcp_repo, credential_repo, secret, registry),
         stop=StopMCPUseCase(mcp_repo, credential_repo),
         restart=RestartMCPUseCase(mcp_repo, start),
         update=UpdateMCPUseCase(mcp_repo, registry, docker),
@@ -75,7 +78,7 @@ def build_container(session: AsyncSession) -> UseCaseContainer:
             mcp_repo, credential_repo, integration_repo, integration, secret, registry
         ),
         local_connection=GetLocalConnectionInfoUseCase(mcp_repo, credential_repo),
-        dashboard=GetDashboardStatsUseCase(mcp_repo, docker),
+        dashboard=GetDashboardStatsUseCase(mcp_repo),
         docker=DockerSDKService(settings.docker_host),
     )
 

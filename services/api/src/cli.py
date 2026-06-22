@@ -34,22 +34,9 @@ def _run_wrapper_mode() -> None:
     run_wrapper(catalog_id)
 
 
-def _run_gateway_mode() -> None:
-    """Run mcp-proxy inside the bundled sidecar (PyInstaller cannot use `python -m`)."""
-    ensure_runtime_environment()
-    sys.argv = ["mcp_proxy", *sys.argv[2:]]
-    from mcp_proxy.__main__ import main as mcp_proxy_main
-
-    mcp_proxy_main()
-
-
 def main() -> None:
     if len(sys.argv) >= 2 and sys.argv[1] == "--run-wrapper":
         _run_wrapper_mode()
-        return
-
-    if len(sys.argv) >= 2 and sys.argv[1] == "--run-gateway":
-        _run_gateway_mode()
         return
 
     _configure_bootstrap_logging()

@@ -8,7 +8,7 @@ import { AgentPlan } from "@/features/mcps/components/AgentPlan";
 import { AppIconBadge, catalogIconId } from "@/components/icons/app-icon";
 import { useInstallWizard, useAppStore } from "@/stores/app.store";
 import { useDockerStatus } from "@/hooks/use-docker-status";
-import { Download, Check } from "lucide-react";
+import { Download, Check, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 export function CatalogPage() {
@@ -31,7 +31,7 @@ export function CatalogPage() {
       setSteps([
         { label: "Pull Image", done: true },
         { label: "Configure Secrets", done: false },
-        { label: "Start Runtime", done: false },
+        { label: "Start MCP", done: false },
         { label: "Connect Cursor", done: false },
       ]);
       setProgress(25);
@@ -47,7 +47,7 @@ export function CatalogPage() {
     setSteps([
       { label: "Pull Image", done: false },
       { label: "Configure Secrets", done: false },
-      { label: "Start Runtime", done: false },
+      { label: "Start MCP", done: false },
       { label: "Connect Cursor", done: false },
     ]);
     setProgress(10);
@@ -60,7 +60,7 @@ export function CatalogPage() {
       setSteps([
         { label: "Pull Image", done: true },
         { label: "Configure Secrets", done: false },
-        { label: "Start Runtime", done: false },
+        { label: "Start MCP", done: false },
         { label: "Connect Cursor", done: false },
       ]);
       setProgress(100);
@@ -118,6 +118,10 @@ export function CatalogPage() {
                   <Button variant="secondary" disabled className="w-full">
                     <Check className="h-4 w-4" /> Installed
                   </Button>
+                ) : entry.id === "docker" ? (
+                  <Button variant="secondary" disabled className="w-full" title="Local gateway for Docker MCP coming soon">
+                    Coming soon
+                  </Button>
                 ) : (
                   <Button
                     className="w-full"
@@ -129,7 +133,14 @@ export function CatalogPage() {
                         : "Start Docker Desktop before installing MCPs"
                     }
                   >
-                    <Download className="h-4 w-4" /> Install
+                    {installMutation.isPending && installName === entry.name ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    {installMutation.isPending && installName === entry.name
+                      ? "Installing..."
+                      : "Install"}
                   </Button>
                 )}
               </CardContent>

@@ -4,7 +4,6 @@ from application.dto.mcp_dto import DashboardStatsDTO, LocalConnectionInfoDTO
 from domain.repositories.credential_repository import CredentialRepository
 from domain.repositories.integration_repository import IntegrationRepository
 from domain.repositories.mcp_repository import MCPRepository
-from domain.services.docker_service import DockerService
 from domain.services.integration_service import IntegrationService
 from domain.services.registry_service import RegistryService
 from domain.services.secret_service import SecretService
@@ -191,35 +190,19 @@ class GetLocalConnectionInfoUseCase:
 
 
 class GetDashboardStatsUseCase:
-    def __init__(
-        self,
-        mcp_repo: MCPRepository,
-        docker: DockerService,
-    ) -> None:
+    def __init__(self, mcp_repo: MCPRepository) -> None:
         self._mcp_repo = mcp_repo
-        self._docker = docker
 
     async def execute(self) -> DashboardStatsDTO:
         mcps = await self._mcp_repo.list_all()
         active = [m for m in mcps if m.status == MCPStatus.RUNNING]
         errors = [m for m in mcps if m.status == MCPStatus.ERROR]
 
-        total_cpu = 0.0
-        total_memory = 0.0
-        for mcp in active:
-            if mcp.container_id:
-                try:
-                    metrics = await self._docker.get_container_metrics(mcp.container_id)
-                    total_cpu += metrics.cpu_percent
-                    total_memory += metrics.memory_usage_mb
-                except Exception:
-                    pass
-
         return DashboardStatsDTO(
             active_count=len(active),
             error_count=len(errors),
             total_count=len(mcps),
-            total_cpu=round(total_cpu, 2),
-            total_memory_mb=round(total_memory, 2),
+            total_cpu=0.0,
+            total_memory_mb=0.0,
             updates_available=0,
         )

@@ -28,8 +28,8 @@ class StopMCPUseCase:
 
         try:
             await gateway_manager.stop(mcp_id)
-        except Exception as e:
-            return Failure(error=str(e), code="gateway_error")
+        except Exception:
+            pass
 
         creds = await self._credential_repo.get_by_mcp_id(mcp_id)
         mcp.status = MCPStatus.STOPPED

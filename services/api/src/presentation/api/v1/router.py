@@ -124,6 +124,13 @@ async def stop_mcp(mcp_id: UUID, uc: UseCaseContainer = Depends(get_use_cases)):
     return await _refetch_mcp(mcp_id, uc)
 
 
+@router.post("/mcps/{mcp_id}/expose", response_model=MCPResponse)
+async def expose_mcp(mcp_id: UUID, uc: UseCaseContainer = Depends(get_use_cases)):
+    result = await uc.expose.execute(mcp_id)
+    _handle_result(result)
+    return await _refetch_mcp(mcp_id, uc)
+
+
 @router.post("/mcps/{mcp_id}/restart", response_model=MCPResponse)
 async def restart_mcp(mcp_id: UUID, uc: UseCaseContainer = Depends(get_use_cases)):
     result = await uc.restart.execute(mcp_id)

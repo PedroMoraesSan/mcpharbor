@@ -48,6 +48,8 @@ export const api = {
     request<MCP>(`/api/v1/mcps/${id}/start`, { method: "POST" }),
   stop: (id: string) =>
     request<MCP>(`/api/v1/mcps/${id}/stop`, { method: "POST" }),
+  expose: (id: string) =>
+    request<MCP>(`/api/v1/mcps/${id}/expose`, { method: "POST" }),
   restart: (id: string) =>
     request<MCP>(`/api/v1/mcps/${id}/restart`, { method: "POST" }),
   update: (id: string) =>

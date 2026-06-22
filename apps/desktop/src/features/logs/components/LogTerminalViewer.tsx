@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
@@ -9,11 +9,6 @@ interface LogTerminalViewerProps {
 
 export function LogTerminalViewer({ lines }: LogTerminalViewerProps) {
   const [filter, setFilter] = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [lines]);
 
   const filtered = filter
     ? lines.filter((l) => l.toLowerCase().includes(filter.toLowerCase()))
@@ -42,7 +37,6 @@ export function LogTerminalViewer({ lines }: LogTerminalViewerProps) {
               {line}
             </div>
           ))}
-          <div ref={bottomRef} />
         </pre>
       </ScrollArea>
     </div>

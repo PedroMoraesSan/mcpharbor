@@ -15,9 +15,16 @@ import { ConfirmActionModal } from "@/features/mcps/components/ConfirmActionModa
 import { LocalConnectionPanel } from "@/features/mcps/components/LocalConnectionPanel";
 import { RuntimeStartupPanel } from "@/features/mcps/components/RuntimeStartupPanel";
 import { useRuntimeStartupMessages } from "@/hooks/use-runtime-startup-messages";
-import { Play, Square, RotateCcw, RefreshCw, Plug, Trash2, Loader2 } from "lucide-react";
+import { Play, Square, RotateCcw, RefreshCw, Plug, Trash2, Loader2, Puzzle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
-type PendingAction = "start" | "stop" | "restart" | "update" | "connect" | "uninstall" | null;
+type PendingAction = "start" | "stop" | "restart" | "update" | "connect" | "expose" | "uninstall" | null;
 
 export function McpDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +35,7 @@ export function McpDetailPage() {
   const [messageType, setMessageType] = useState<"info" | "error">("info");
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [showCredModal, setShowCredModal] = useState(false);
+  const [showIntegrateDialog, setShowIntegrateDialog] = useState(false);
 
   const { data: mcp } = useQuery({
     queryKey: ["mcp", id],
@@ -147,6 +155,19 @@ export function McpDetailPage() {
     onError: (e: Error) => showMessage(e.message, "error"),
   });
 
+  const exposeMutation = useMutation({
+    mutationFn: () => api.expose(id!),
+    onSuccess: () => {
+      showMessage("MCP exposed locally");
+      setPendingAction(null);
+      invalidate();
+    },
+    onError: (e: Error) => {
+      showMessage(e.message || "Failed to start local gateway.", "error");
+      setPendingAction(null);
+    },
+  });
+
   const uninstallMutation = useMutation({
     mutationFn: () => api.uninstall(id!),
     onSuccess: () => {
@@ -179,15 +200,15 @@ export function McpDetailPage() {
   const canRestart = mcp.status === "running";
   const canUpdate = mcp.status !== "updating" && mcp.status !== "starting";
 
+  const gatewayRunning = Boolean(mcp.local_endpoint);
   const planSteps = [
     { label: "Pull Image", done: true },
     {
       label: "Configure Secrets",
-      done:
-        requiredCredentialFields.length === 0 || mcp.has_credentials,
+      done: requiredCredentialFields.length === 0 || mcp.has_credentials,
     },
-    { label: "Start Runtime", done: mcp.status === "running" },
-    { label: "Connect Cursor", done: mcp.cursor_connected },
+    { label: "Start MCP", done: mcp.status === "running" },
+    { label: "Expose Locally", done: gatewayRunning },
   ];
   const planProgress =
     (planSteps.filter((s) => s.done).length / planSteps.length) * 100;
@@ -232,6 +253,9 @@ export function McpDetailPage() {
       case "connect":
         connectMutation.mutate();
         break;
+      case "expose":
+        exposeMutation.mutate();
+        break;
       case "uninstall":
         uninstallMutation.mutate();
         break;
@@ -244,6 +268,7 @@ export function McpDetailPage() {
     restartMutation.isPending ||
     updateMutation.isPending ||
     connectMutation.isPending ||
+    exposeMutation.isPending ||
     uninstallMutation.isPending;
 
   const actionConfirmConfig: Record<
@@ -259,34 +284,33 @@ export function McpDetailPage() {
     start: {
       title: `Start ${mcp.name}?`,
       description: (
-        <>
-          <p>
-            Harbor will start this MCP locally and expose a developer endpoint on
-            localhost (Streamable HTTP).
-          </p>
-          {mcp.local_endpoint && (
-            <p className="font-mono text-xs text-foreground/80">
-              Previous endpoint: {mcp.local_endpoint}
-            </p>
-          )}
-        </>
+        <p>
+          Pulls the Docker image and marks the MCP as active. Use{" "}
+          <strong>Expose Locally</strong> afterwards to start the local HTTP gateway.
+        </p>
       ),
       confirmLabel: "Start",
       pendingLabel: "Starting...",
       variant: "success",
     },
+    expose: {
+      title: `Expose ${mcp.name} locally?`,
+      description: (
+        <p>
+          Starts the Streamable HTTP gateway on localhost so you can connect directly
+          to this MCP from any client.
+        </p>
+      ),
+      confirmLabel: "Expose",
+      pendingLabel: "Exposing...",
+      variant: "default",
+    },
     stop: {
       title: `Stop ${mcp.name}?`,
       description: (
-        <>
-          <p>
-            This will shut down the local gateway and disconnect any clients using
-            the developer endpoint.
-          </p>
-          {mcp.local_endpoint && (
-            <p className="font-mono text-xs text-foreground/80">{mcp.local_endpoint}</p>
-          )}
-        </>
+        <p>
+          Stops the MCP. If the local gateway is running it will also be shut down.
+        </p>
       ),
       confirmLabel: "Stop",
       pendingLabel: "Stopping...",
@@ -295,10 +319,7 @@ export function McpDetailPage() {
     restart: {
       title: `Restart ${mcp.name}?`,
       description: (
-        <p>
-          The gateway will be stopped and started again. Active connections will be
-          interrupted briefly.
-        </p>
+        <p>Restarts the MCP. Active connections will be briefly interrupted.</p>
       ),
       confirmLabel: "Restart",
       pendingLabel: "Restarting...",
@@ -309,7 +330,6 @@ export function McpDetailPage() {
       description: (
         <p>
           Pulls the latest Docker image ({mcp.docker_image}) and updates this MCP.
-          If it is running, the gateway may restart during the update.
         </p>
       ),
       confirmLabel: "Update",
@@ -333,8 +353,8 @@ export function McpDetailPage() {
       title: `Uninstall ${mcp.name}?`,
       description: (
         <p>
-          Stops the gateway, removes credentials from the system keychain, and
-          disconnects Cursor. This action cannot be undone.
+          Removes credentials from the system keychain and disconnects all integrations.
+          This action cannot be undone.
         </p>
       ),
       confirmLabel: "Uninstall",
@@ -431,15 +451,21 @@ export function McpDetailPage() {
             : "Update"}
         </Button>
         <Button
-          onClick={handleConnectCursor}
-          disabled={connectMutation.isPending || mcp.cursor_connected}
+          variant="secondary"
+          onClick={() => setPendingAction("expose")}
+          disabled={mcp.status !== "running" || exposeMutation.isPending || gatewayRunning}
+          title={gatewayRunning ? `Exposed at ${mcp.local_endpoint}` : "Start local HTTP gateway"}
         >
-          <Plug className="h-4 w-4" />
-          {connectMutation.isPending
-            ? "Connecting..."
-            : mcp.cursor_connected
-              ? "Connected"
-              : "Connect Cursor"}
+          {exposeMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Plug className="h-4 w-4" />
+          )}
+          {gatewayRunning ? "Exposed Locally" : exposeMutation.isPending ? "Exposing..." : "Expose Locally"}
+        </Button>
+        <Button onClick={() => setShowIntegrateDialog(true)}>
+          <Puzzle className="h-4 w-4" />
+          Integrate
         </Button>
       </div>
 
@@ -536,6 +562,44 @@ export function McpDetailPage() {
         isSaving={credMutation.isPending}
         isUpdate={mcp.has_credentials}
       />
+
+      <Dialog open={showIntegrateDialog} onOpenChange={setShowIntegrateDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Integrate {mcp.name}</DialogTitle>
+            <DialogDescription>Choose a provider to connect this MCP server.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 pt-1">
+            <Button
+              className="w-full justify-start gap-3"
+              disabled={connectMutation.isPending || mcp.cursor_connected}
+              onClick={() => {
+                setShowIntegrateDialog(false);
+                handleConnectCursor();
+              }}
+            >
+              <Plug className="h-4 w-4" />
+              {mcp.cursor_connected ? "Cursor — Connected" : "Cursor"}
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full justify-start gap-3"
+              onClick={() => setShowIntegrateDialog(false)}
+            >
+              <Plug className="h-4 w-4" />
+              Claude Desktop — copy snippet below
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full justify-start gap-3"
+              onClick={() => setShowIntegrateDialog(false)}
+            >
+              <Plug className="h-4 w-4" />
+              VS Code — copy snippet below
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmActionModal
         open={pendingAction !== null}

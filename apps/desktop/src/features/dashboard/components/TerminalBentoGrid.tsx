@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusIndicator } from "@/components/status/StatusIndicator";
 import { AppIconBadge, catalogIconId } from "@/components/icons/app-icon";
 import { api } from "@/lib/api-client";
-import { Activity, AlertTriangle, Cpu, HardDrive } from "lucide-react";
+import { Activity, AlertTriangle, Package, CheckCircle } from "lucide-react";
 
 export function TerminalBentoGrid() {
   const { data: stats } = useQuery({
@@ -52,12 +52,12 @@ export function TerminalBentoGrid() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-[11px] font-medium normal-case tracking-[0.15em] text-muted-foreground">
-            <Cpu className="h-4 w-4 text-primary" /> CPU Usage
+            <Package className="h-4 w-4 text-primary" /> Total Installed
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="font-display text-3xl tracking-wider text-foreground">
-            {stats?.total_cpu ?? 0}%
+            {stats?.total_count ?? mcps?.length ?? 0}
           </div>
         </CardContent>
       </Card>
@@ -65,12 +65,12 @@ export function TerminalBentoGrid() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-[11px] font-medium normal-case tracking-[0.15em] text-muted-foreground">
-            <HardDrive className="h-4 w-4 text-primary" /> Memory
+            <CheckCircle className="h-4 w-4 text-success" /> Connected
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="font-display text-3xl tracking-wider text-foreground">
-            {stats?.total_memory_mb ?? 0} MB
+            {mcps?.filter((m) => m.cursor_connected).length ?? 0}
           </div>
         </CardContent>
       </Card>

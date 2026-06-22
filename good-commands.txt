@@ -1,0 +1,1 @@
+rm -rf /tmp/mcpharbour-build && bash /Users/pedromoraes/Documents/Morpheus/mcpharbour/services/api/scripts/build-sidecar.sh 2>&1 | tail -3
