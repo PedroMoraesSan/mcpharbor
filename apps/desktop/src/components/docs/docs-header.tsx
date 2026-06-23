@@ -19,12 +19,6 @@ export function DocsHeader() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link
-            to="/"
-            className="hidden px-2 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground md:inline"
-          >
-            App
-          </Link>
           <Button asChild size="sm" className="h-8 gap-1.5 px-3">
             <Link to="/">
               Console
