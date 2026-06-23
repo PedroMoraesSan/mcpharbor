@@ -5,8 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 
-from fastapi import Request
-
 from infrastructure.mcp.gateway import gateway_manager
 from presentation.api.dependencies import UseCaseContainer, get_use_cases
 from presentation.schemas.mcp_schemas import (
@@ -250,7 +248,11 @@ async def update_policy(
     body: AgentPolicyUpdateRequest,
     uc: UseCaseContainer = Depends(get_use_cases),
 ):
-    raw = [s.model_dump() for s in body.allowed_servers] if body.allowed_servers is not None else None
+    raw = (
+        [s.model_dump() for s in body.allowed_servers]
+        if body.allowed_servers is not None
+        else None
+    )
     result = await uc.update_policy.execute(agent_id, raw)
     dto = _handle_result(result)
     servers = None

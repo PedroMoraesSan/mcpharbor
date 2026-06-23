@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from uuid import uuid4
 
 from domain.entities.credential import Integration

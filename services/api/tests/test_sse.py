@@ -23,13 +23,18 @@ async def test_stream_sse_unknown_mcp(mock_gateway_manager):
 @patch("infrastructure.mcp.unified_gateway.httpx")
 async def test_stream_sse_proxies_lines(mock_httpx, mock_gateway_manager):
     mcp_id = uuid4()
-    session = GatewaySession(mcp_id=mcp_id, catalog_id="test", name="test", port=18080, _task=MagicMock())
+    session = GatewaySession(
+        mcp_id=mcp_id, catalog_id="test", name="test", port=18080, _task=MagicMock()
+    )
     mock_gateway_manager.get.return_value = session
 
     mock_resp = MagicMock()
     mock_resp.aiter_lines = MagicMock(
         return_value=_async_gen(
-            "event: endpoint", 'data: /messages/?session_id=abc', 'event: message', 'data: {"ok": true}'
+            "event: endpoint",
+            "data: /messages/?session_id=abc",
+            "event: message",
+            'data: {"ok": true}',
         )
     )
 
@@ -65,7 +70,9 @@ async def test_handle_sse_message_unknown_mcp(mock_gateway_manager):
 @patch("infrastructure.mcp.unified_gateway.gateway_manager")
 async def test_handle_sse_message_forwards_to_proxy(mock_gateway_manager):
     mcp_id = uuid4()
-    session = GatewaySession(mcp_id=mcp_id, catalog_id="test", name="test", port=18081, _task=MagicMock())
+    session = GatewaySession(
+        mcp_id=mcp_id, catalog_id="test", name="test", port=18081, _task=MagicMock()
+    )
     mock_gateway_manager.get.return_value = session
 
     gateway = UnifiedMcpGateway(AsyncMock())

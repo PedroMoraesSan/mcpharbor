@@ -59,7 +59,9 @@ class ExposeMCPUseCase:
 
         try:
             command, args, env = build_docker_stdio(mcp, creds, resolved)
-            session = await gateway_manager.start(mcp.id, mcp.catalog_id, mcp.name, command, args, env)
+            session = await gateway_manager.start(
+                mcp.id, mcp.catalog_id, mcp.name, command, args, env
+            )
             mcp.container_id = str(session.port)
             mcp.container_name = f"gateway-{session.port}"
             mcp.updated_at = utc_now()

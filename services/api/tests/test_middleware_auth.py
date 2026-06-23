@@ -21,8 +21,6 @@ async def client(test_database_url):
         test_database_url,
         connect_args={"check_same_thread": False},
     )
-    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
     app = create_app()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

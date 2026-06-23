@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from domain.entities.policy import AgentPolicy, ServerPolicy, ToolRule
 from domain.repositories.policy_repository import PolicyRepository
-from shared.result import Failure, Result, Success
+from shared.result import Result, Success
 
 
 @dataclass

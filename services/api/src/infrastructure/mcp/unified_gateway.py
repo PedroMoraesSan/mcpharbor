@@ -26,8 +26,9 @@ class UnifiedMcpGateway:
         if not session:
             return
 
-        async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream("GET", f"http://127.0.0.1:{session.port}/sse") as resp:
+        async with httpx.AsyncClient(timeout=None) as client, client.stream(
+            "GET", f"http://127.0.0.1:{session.port}/sse"
+        ) as resp:
                 async for line in resp.aiter_lines():
                     if line.startswith("data: ") and "/messages/" in line:
                         line = line.replace(
@@ -80,14 +81,18 @@ class UnifiedMcpGateway:
         self._tool_map.clear()
         for mcp_id, session in gateway_manager.sessions.items():
             try:
-                data = await self._call_mcp(session, {"method": "tools/list", "id": 1, "jsonrpc": JSONRPC_VERSION})
+                data = await self._call_mcp(
+                    session, {"method": "tools/list", "id": 1, "jsonrpc": JSONRPC_VERSION}
+                )
                 tools = (data or {}).get("result", {}).get("tools", [])
                 for tool in tools:
                     name = tool.get("name")
                     if name:
                         self._tool_map[name] = (session.catalog_id, mcp_id)
             except Exception as exc:
-                logger.warning("tool_map_refresh_failed", mcp_id=str(mcp_id), error=str(exc))
+                logger.warning(
+                    "tool_map_refresh_failed", mcp_id=str(mcp_id), error=str(exc)
+                )
 
     async def _call_mcp(self, session: GatewaySession, body: dict) -> dict | None:
         try:
@@ -95,13 +100,19 @@ class UnifiedMcpGateway:
             resp.raise_for_status()
             return resp.json()
         except Exception as exc:
-            logger.warning("mcp_call_failed", mcp_id=str(session.mcp_id), port=session.port, error=str(exc))
+            logger.warning(
+                "mcp_call_failed", mcp_id=str(session.mcp_id), port=session.port, error=str(exc)
+            )
             return None
 
-    async def _handle_list_tools(self, agent: AgentContext | None, req_id: int | str | None) -> dict:
+    async def _handle_list_tools(
+        self, agent: AgentContext | None, req_id: int | str | None
+    ) -> dict:
         combined: list[dict] = []
         for mcp_id, session in gateway_manager.sessions.items():
-            data = await self._call_mcp(session, {"method": "tools/list", "id": 1, "jsonrpc": JSONRPC_VERSION})
+            data = await self._call_mcp(
+                session, {"method": "tools/list", "id": 1, "jsonrpc": JSONRPC_VERSION}
+            )
             tools = (data or {}).get("result", {}).get("tools", [])
             for tool in tools:
                 name = tool.get("name", "")
@@ -118,7 +129,9 @@ class UnifiedMcpGateway:
                 self._tool_map[name] = (session.catalog_id, mcp_id)
         return self._jsonrpc(req_id, result={"tools": combined})
 
-    async def _handle_call_tool(self, params: dict, agent: AgentContext | None, req_id: int | str | None) -> dict:
+    async def _handle_call_tool(
+        self, params: dict, agent: AgentContext | None, req_id: int | str | None
+    ) -> dict:
         tool_name = params.get("name", "")
         arguments = params.get("arguments", {})
 
@@ -166,7 +179,9 @@ class UnifiedMcpGateway:
     async def _handle_list_resources(self, req_id: int | str | None) -> dict:
         all_resources: list[dict] = []
         for session in gateway_manager.sessions.values():
-            data = await self._call_mcp(session, {"method": "resources/list", "id": 1, "jsonrpc": JSONRPC_VERSION})
+            data = await self._call_mcp(
+                session, {"method": "resources/list", "id": 1, "jsonrpc": JSONRPC_VERSION}
+            )
             resources = (data or {}).get("result", {}).get("resources", [])
             all_resources.extend(resources)
         return self._jsonrpc(req_id, result={"resources": all_resources})
@@ -177,4 +192,8 @@ class UnifiedMcpGateway:
 
     @staticmethod
     def _jsonrpc_error(req_id: int | str | None, code: int, message: str) -> dict:
-        return {"jsonrpc": JSONRPC_VERSION, "id": req_id, "error": {"code": code, "message": message}}
+        return {
+            "jsonrpc": JSONRPC_VERSION,
+            "id": req_id,
+            "error": {"code": code, "message": message},
+        }

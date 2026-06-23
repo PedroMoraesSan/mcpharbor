@@ -66,8 +66,7 @@ async def _run_streamable_http_gateway(
     try:
         async with AsyncExitStack() as stack:
             logger.info("gateway_step", mcp_id=str(mcp_id), step="stdio_connect")
-            _devnull = open(os.devnull, "w")
-            stack.callback(_devnull.close)
+            _devnull = stack.enter_context(open(os.devnull, "w"))  # noqa: SIM115
             read, write = await stack.enter_async_context(
                 stdio_client(params, errlog=_devnull)
             )
@@ -190,7 +189,9 @@ class McpGatewayManager:
         )
 
         task = asyncio.create_task(
-            _run_streamable_http_gateway(mcp_id=mcp_id, port=port, command=command, args=args, env=env),
+            _run_streamable_http_gateway(
+                mcp_id=mcp_id, port=port, command=command, args=args, env=env
+            ),
             name=f"mcp-gateway-{mcp_id}",
         )
 
@@ -202,7 +203,9 @@ class McpGatewayManager:
                 await task
             raise
 
-        session = GatewaySession(mcp_id=mcp_id, catalog_id=catalog_id, name=name, port=port, _task=task)
+        session = GatewaySession(
+            mcp_id=mcp_id, catalog_id=catalog_id, name=name, port=port, _task=task
+        )
         self._sessions[mcp_id] = session
         logger.info(
             "mcp_gateway_ready",

@@ -4,9 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from infrastructure.mcp.gateway import gateway_manager
 from infrastructure.persistence.database import engine
 from infrastructure.persistence.migrate import upgrade_database
-from infrastructure.mcp.gateway import gateway_manager
 from presentation.api.middleware.auth import AuthMiddleware
 from presentation.api.v1.router import router as v1_router
 from shared.config import ensure_runtime_environment

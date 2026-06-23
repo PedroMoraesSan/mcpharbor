@@ -6,7 +6,11 @@ from application.use_cases.agents import CreateAgentUseCase, DeleteAgentUseCase,
 from application.use_cases.credentials import SaveCredentialUseCase, ValidateCredentialsUseCase
 from application.use_cases.expose_mcp import ExposeMCPUseCase
 from application.use_cases.install_mcp import InstallMCPUseCase
-from application.use_cases.integrations import ConnectCursorUseCase, GetDashboardStatsUseCase, GetLocalConnectionInfoUseCase
+from application.use_cases.integrations import (
+    ConnectCursorUseCase,
+    GetDashboardStatsUseCase,
+    GetLocalConnectionInfoUseCase,
+)
 from application.use_cases.list_catalog import ListCatalogUseCase, ListInstalledMCPsUseCase
 from application.use_cases.logs_metrics import GetMCPLogsUseCase, GetMCPMetricsUseCase
 from application.use_cases.policies import GetPolicyUseCase, UpdatePolicyUseCase

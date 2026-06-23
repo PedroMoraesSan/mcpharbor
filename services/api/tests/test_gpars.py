@@ -1,13 +1,13 @@
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 
 from infrastructure.mcp.gateway import GatewaySession
 from infrastructure.mcp.gpars import authorization_denied, server_unavailable
 from infrastructure.mcp.unified_gateway import UnifiedMcpGateway
-from shared.errors import AUTHORIZATION_DENIED_CODE, SERVER_UNAVAILABLE_CODE
 from shared.errors import AUTHORIZATION_DENIED as GPARS_AUTH_DENIED
+from shared.errors import AUTHORIZATION_DENIED_CODE, SERVER_UNAVAILABLE_CODE
 from shared.errors import SERVER_UNAVAILABLE as GPARS_SERVER_UNAVAILABLE
 
 
@@ -82,14 +82,20 @@ async def test_unified_gateway_returns_gpars_server_unavailable_for_unknown_tool
 @patch("infrastructure.mcp.unified_gateway.gateway_manager")
 async def test_unified_gateway_no_auth_required_without_agent(mock_gateway_manager):
     mcp_id = uuid4()
-    session = GatewaySession(mcp_id=mcp_id, catalog_id="test_server", name="test", port=18999, _task=MagicMock())
+    session = GatewaySession(
+        mcp_id=mcp_id, catalog_id="test_server", name="test", port=18999, _task=MagicMock()
+    )
     mock_gateway_manager.sessions = {mcp_id: session}
 
     policy = AsyncMock()
     gateway = UnifiedMcpGateway(policy)
     gateway._tool_map = {"test_tool": ("test_server", mcp_id)}
 
-    with patch.object(gateway, "_call_mcp", AsyncMock(return_value={"result": {"content": [{"type": "text", "text": "ok"}]}})):
+    with patch.object(
+        gateway,
+        "_call_mcp",
+        AsyncMock(return_value={"result": {"content": [{"type": "text", "text": "ok"}]}}),
+    ):
         result = await gateway.handle_jsonrpc(
             {"method": "tools/call", "params": {"name": "test_tool", "arguments": {}}, "id": 1},
             None,

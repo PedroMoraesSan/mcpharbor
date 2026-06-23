@@ -36,7 +36,9 @@ def build_docker_stdio(
     return "docker", args, env
 
 
-def build_wrapper_stdio(mcp: MCP, credentials: list[Credential]) -> tuple[str, list[str], dict[str, str]]:
+def build_wrapper_stdio(
+    mcp: MCP, credentials: list[Credential]
+) -> tuple[str, list[str], dict[str, str]]:
     """Return (command, args, env) for spawning the Harbor MCP wrapper."""
     command, args = wrapper_command(mcp.catalog_id)
     return command, args, build_wrapper_env(mcp, credentials)

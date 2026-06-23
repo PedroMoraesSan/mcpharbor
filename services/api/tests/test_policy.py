@@ -204,7 +204,9 @@ async def test_policy_allows_tool_with_any_arguments_when_argument_rules_is_none
     )
 
     service = PolicyEvaluationService(policy_repo)
-    result = await service.check_tool_allowed("agent-1", "github", "create_issue", {"title": "Fix bug"})
+    result = await service.check_tool_allowed(
+        "agent-1", "github", "create_issue", {"title": "Fix bug"}
+    )
 
     assert result is True
 
