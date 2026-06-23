@@ -1,377 +1,265 @@
-# Plano de Implementação — MCP Harbour v2
+# MCP Harbor — Roadmap de Implementação
 
-## Visão Geral
-
-Adicionar ao MCP Harbor as funcionalidades de controle de acesso e identidade do MCP Harbour (mcpharbour.ai): **políticas por agente**, **autenticação via token**, **endpoint único `/mcp`** e **códigos de erro GPARS**.
+Implementação completa das funcionalidades de controle de acesso e identidade,
+inspiradas pelo [MCP Harbour (mcpharbour.ai)](https://mcpharbour.ai).
 
 ---
 
-## Fase 1 — Motor de Políticas (Policy Engine)
+## Fase 1 — Motor de Políticas (Policy Engine) ✅
 
-### O que muda
+## O que foi feito
 
-Hoje qualquer agente com acesso ao Harbor pode usar qualquer MCP. Precisamos de um sistema onde o usuário define **quem** pode acessar **o quê**.
+Sistema de **default-deny** onde o usuário define quem (qual agente) pode
+acessar o quê (qual MCP, qual tool, quais argumentos).
 
 ### Novos arquivos
 
-```
-services/api/src/domain/entities/policy.py     # Policy, PolicyRule entidades
-services/api/src/domain/repositories/policy_repository.py  # interface
-services/api/src/domain/services/policy_service.py         # avaliação de políticas
-```
+| Arquivo | Descrição |
+|---------|-----------|
+| `domain/entities/policy.py` | `Agent`, `AgentPolicy`, `ServerPolicy`, `ToolRule` |
+| `domain/repositories/policy_repository.py` | Interfaces `AgentRepository`, `PolicyRepository` |
+| `domain/services/policy_service.py` | ABC `PolicyService` com `check_tool_allowed()` |
+| `infrastructure/policy/policy_service.py` | `PolicyEvaluationService` — avaliação em 3 níveis (server → tool → argument) |
+| `infrastructure/persistence/models.py` | `AgentModel`, `PolicyModel` (SQLAlchemy) |
+| `infrastructure/persistence/repositories.py` | `SQLAlchemyAgentRepository` (inclui `get_by_token_hash`), `SQLAlchemyPolicyRepository` |
+| `alembic/versions/002_add_policies.py` | Migration com tabelas `agents` + `policies` |
+| `application/use_cases/agents.py` | `ListAgentsUseCase`, `CreateAgentUseCase`, `DeleteAgentUseCase` |
+| `application/use_cases/policies.py` | `GetPolicyUseCase`, `UpdatePolicyUseCase` |
+| `application/dto/agent_dto.py` | `AgentDTO`, `AgentWithTokenDTO` |
+| `presentation/api/v1/router.py` | Rotas `GET/POST/DELETE /api/v1/agents`, `GET/PUT /api/v1/agents/{id}/policy` |
+| `presentation/schemas/mcp_schemas.py` | Schemas Pydantic para Agent/Policy |
+| `presentation/api/dependencies.py` | DI container com novos repos + use cases |
+| `apps/desktop/src/pages/agents/AgentsPage.tsx` | UI: listar, criar, deletar agents |
+| `apps/desktop/src/pages/agents/AgentPolicyPage.tsx` | UI: editor visual de políticas |
+| `apps/desktop/src/app/router.tsx` | Rotas `/agents` e `/agents/:agentId/policy` |
+| `apps/desktop/src/layouts/AppLayout/Sidebar.tsx` | Nav link "Access Control" |
+| `apps/desktop/src/lib/api-client.ts` | `requestRaw()` exportado |
 
-### `domain/entities/policy.py`
+### Decisões técnicas
 
-```python
-@dataclass(frozen=True)
-class ToolRule:
-    tool_name: str
-    allowed_arguments: list[str] | None = None  # None = todos
+- **Policy como JSON column** (`rules_json`) na tabela `policies` — flexível para
+  novos tipos de regra sem schema migration.
+- **`None` = permitir todos** vs **lista vazia = permitir nenhum** nos 3 níveis
+  (servers, tools, arguments).
+- **Token gerado com `harbour_sk_` + SHA-256** — mostrado uma única vez no
+  create; apenas o hash é persistido.
+- **Agente e Policy em tabelas separadas** — permite versionamento independente
+  da policy.
 
-@dataclass(frozen=True)
-class ServerPolicy:
-    server_id: str       # catalog_id do MCP
-    allowed_tools: list[ToolRule] | None = None  # None = todas as tools
+### Bug corrigido (loading loop)
 
-@dataclass(frozen=True)
-class AgentPolicy:
-    agent_id: str
-    allowed_servers: list[ServerPolicy] | None = None  # None = todos servidores
-```
+O PyInstaller sidecar (DMG) entrava em loop de loading porque os novos módulos
+(`application.use_cases.agents`, `application.use_cases.policies`,
+`infrastructure.policy.policy_service`) não estavam em `hiddenimports` no
+`fastapi-server.spec`. A correção foi adicionar os imports manualmente —
+necessário porque o auto-detect do PyInstaller nem sempre encontra módulos
+importados dinamicamente.
 
-### `domain/services/policy_service.py`
+---
 
-```python
-class PolicyService(ABC):
-    @abstractmethod
-    async def get_policy(self, agent_id: str) -> AgentPolicy | None: ...
+## Fase 2 — Identidade e Autenticação ✅
 
-    @abstractmethod
-    async def check_tool_allowed(
-        self, agent_id: str, server_id: str, tool_name: str, arguments: dict
-    ) -> bool: ...
-```
+### O que foi feito
 
-### Banco de dados — migration `002_add_policies`
+Cada agente recebe um **token Bearer** (`harbour_sk_...`). O daemon deriva a
+identidade do token — o agente **não pode se autodeclarar**.
 
-```python
-# Novas tabelas:
-#   agents (id, name, token_hash, created_at)
-#   policies (id, agent_id FK, policy_json JSON)
-```
+### Novos arquivos
 
-### UI — nova página "Access Control"
+| Arquivo | Descrição |
+|---------|-----------|
+| `domain/services/auth_service.py` | `AgentContext` dataclass + `AuthService` ABC |
+| `infrastructure/auth/token_service.py` | `generate_token()`, `hash_token()`, `TokenAuthService` |
+| `presentation/api/middleware/auth.py` | `AuthMiddleware` — extrai Bearer, valida, seta `request.state.agent` |
 
-`apps/desktop/src/pages/policies/`:
-- Listar agents com suas policies
-- Editor visual de regras (quais MCPs, quais tools, quais argumentos)
-- Gerar token para novo agent
-
-### Arquivos a modificar
+### Arquivos modificados
 
 | Arquivo | Mudança |
 |---------|---------|
-| `domain/entities/__init__.py` | Exportar novas entidades |
-| `infrastructure/persistence/models.py` | Models `AgentModel`, `PolicyModel` |
-| `infrastructure/persistence/repositories.py` | `SQLAlchemyPolicyRepository` |
-| `infrastructure/persistence/database.py` | Nova dependência |
-| `presentation/api/dependencies.py` | Novo container `PolicyService` |
-| `presentation/api/v1/router.py` | Novas rotas `/api/v1/agents`, `/api/v1/policies` |
-| `presentation/schemas/mcp_schemas.py` | Schemas Agent/Policy |
-| `shared/result.py` | Código `authorization_denied` |
-| `alembic/versions/002_add_policies.py` | Migration |
-| `package.json` / scripts | Nenhuma mudança |
-
----
-
-## Fase 2 — Identidade e Autenticação
-
-### O que muda
-
-Cada agente (Cursor, Claude, OpenCode) recebe um **token Bearer** tipo `harbour_sk_...`. O daemon deriva a identidade do token — o agente **não pode se autodeclarar**.
-
-### Novos arquivos
-
-```
-services/api/src/domain/services/auth_service.py     # hash, verify
-services/api/src/infrastructure/auth/token_service.py # geração/validação
-services/api/src/presentation/api/middleware/auth.py  # FastAPI middleware
-```
+| `main.py` | Registra `AuthMiddleware` no app |
+| `application/use_cases/agents.py` | Refatorado para usar `generate_token()` do token_service (removido hashlib/secrets inline) |
+| `fastapi-server.spec` | `hiddenimports` para `infrastructure.auth.token_service` e `presentation.api.middleware.auth` |
+| `tests/test_middleware_auth.py` | 6 testes novos (rota pública, admin sem token, token ausente, inválido, malformado, válido) |
 
 ### Fluxo de autenticação
 
 ```
-Agent → Bearer token → AuthMiddleware → resolve identity → request context
+Agent → Authorization: Bearer harbour_sk_... → AuthMiddleware
+  → SHA-256(token) → AgentRepository.get_by_token_hash()
+  → se válido → request.state.agent = AgentContext(agent_id, agent_name)
+  → se inválido → 401
 ```
 
-### `infrastructure/auth/token_service.py`
+### Rotas protegidas vs públicas
 
-```python
-class TokenService:
-    @staticmethod
-    def generate() -> tuple[str, str]:   # (raw_token, hashed_token)
-        raw = f"harbour_sk_{secrets.token_urlsafe(32)}"
-        hashed = hashlib.sha256(raw.encode()).hexdigest()
-        return raw, hashed
+| Rota | Protegida? | Motivo |
+|------|-----------|--------|
+| `/health` | ❌ | Health check do Tauri |
+| `/docs`, `/openapi.json` | ❌ | Documentação |
+| `/api/v1/agents` (POST) | ❌ | Criar primeiro agent |
+| `/api/v1/mcps/*`, `/api/v1/catalog`, etc | ❌ | Admin desktop |
+| `/api/v1/mcp` (Fase 3) | ✅ | Agent-facing |
 
-    @staticmethod
-    def verify(token: str, hashed: str) -> bool:
-        return hashlib.sha256(token.encode()).hexdigest() == hashed
-```
+### Dívida técnica sanada
 
-### Middleware de autenticação
-
-```python
-# presentation/api/middleware/auth.py
-@dataclass
-class AgentContext:
-    agent_id: str
-    agent_name: str
-
-class AuthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        token = request.headers.get("Authorization", "").removeprefix("Bearer ")
-        agent = await resolve_agent(token)
-        request.state.agent = agent
-        return await call_next(request)
-```
-
-### Arquivos a modificar
-
-| Arquivo | Mudança |
-|---------|---------|
-| `infrastructure/auth/token_service.py` | Novo — geração/verificação |
-| `presentation/api/middleware/auth.py` | Novo — middleware |
-| `main.py` | Adicionar middleware (exceto nas rotas públicas /health) |
-| `domain/services/auth_service.py` | Interface abstrata |
-| `infrastructure/persistence/models.py` | Model `SessionModel` (opcional) |
-| `presentation/api/v1/router.py` | Rotas `POST /api/v1/agents` (criar agent + token) |
-| `presentation/api/dependencies.py` | Injetar `AgentContext` nos use cases |
-| `presentation/schemas/mcp_schemas.py` | Schema `AgentResponse` |
+- `TokenAuthService` implementa `AuthService` ABC e é usado pelo middleware
+- `request.state.agent` armazena `AgentContext` objeto tipado (pronto p/ Fase 3)
+- 6 testes de middleware garantem o comportamento
 
 ---
 
-## Fase 3 — Endpoint Único `/mcp`
+## Fase 3 — Unified MCP Gateway ✅
 
-### O que muda
+### O que foi feito
 
-Hoje cada MCP exposto vira `http://127.0.0.1:{porta}/mcp`. O agente precisa configurar cada um separadamente.
-
-Com o endpoint único, o agente configura **um único endpoint** `http://127.0.0.1:8741/mcp` com seu token Bearer. O Harbour roteia cada `call_tool` para o servidor certo baseado na identidade + política.
-
-### Novo gateway unificado
-
-Substituir (ou complementar) o `gateway.py` atual por um **proxy MCP único** que:
-
-1. Recebe `tools/list` → retorna tools de **todos** os servidores que o agente pode acessar (prefixadas ou com metadata)
-2. Recebe `tools/call` → identifica qual servidor basedo no `tool_name` → encaminha
-3. Bloqueia tools que não estão na policy do agente
+Endpoint único `/api/v1/mcp` que agrega todos os MCPs rodando. O agente
+configura **um único endpoint** com seu token e o Harbor roteia cada
+`call_tool` para o servidor certo, respeitando a política.
 
 ### Novos arquivos
 
-```
-services/api/src/infrastructure/mcp/unified_gateway.py
-```
+| Arquivo | Descrição |
+|---------|-----------|
+| `infrastructure/mcp/unified_gateway.py` | `UnifiedMcpGateway` — proxy MCP unificado |
 
-### `unified_gateway.py` — esboço
-
-```python
-class UnifiedMcpGateway:
-    def __init__(self, policy_service, ...):
-        self._servers: dict[str, ServerConnection] = {}
-
-    async def handle_list_tools(self, agent_id: str) -> list[Tool]:
-        policy = await self._policy_service.get_policy(agent_id)
-        tools = []
-        for server_id, conn in self._servers.items():
-            if not policy or any(s.server_id == server_id for s in policy.allowed_servers):
-                server_tools = await conn.list_tools()
-                tools.extend(server_tools)
-        return tools
-
-    async def handle_call_tool(self, agent_id: str, tool_name: str, args: dict):
-        # encontrar qual servidor tem esse tool
-        # verificar política
-        # encaminhar
-```
-
-### Rotas
-
-```python
-# /api/v1/mcp — endpoints do protocolo MCP
-POST /api/v1/mcp  → tools/list, tools/call, resources/list, etc.
-GET  /api/v1/mcp/sse → SSE events
-```
-
-### Arquivos a modificar
+### Arquivos modificados
 
 | Arquivo | Mudança |
 |---------|---------|
-| `infrastructure/mcp/unified_gateway.py` | Novo — proxy MCP unificado |
-| `infrastructure/mcp/gateway.py` | Refatorar `McpGatewayManager` para usar o novo gateway; manter compatibilidade |
-| `presentation/api/v1/router.py` | Novas rotas `/api/v1/mcp` |
-| `presentation/schemas/mcp_schemas.py` | Schemas MCP protocol |
-| `application/use_cases/list_catalog.py` | Atualizar `_to_mcp_dto` |
-| `application/dto/mcp_dto.py` | `harbor_endpoint` field |
+| `infrastructure/mcp/gateway.py` | `GatewaySession` ganhou `catalog_id` + `name`; `start()` aceita novos params; nova prop `sessions` |
+| `application/use_cases/expose_mcp.py` | Passa `catalog_id` + `name` ao `gateway_manager.start()` |
+| `presentation/api/v1/router.py` | Nova rota `POST /api/v1/mcp` |
+| `presentation/api/dependencies.py` | `UnifiedMcpGateway` no `UseCaseContainer` |
+| `fastapi-server.spec` | `hiddenimports` para `infrastructure.mcp.unified_gateway` |
+
+### Como funciona
+
+Requisição `POST /api/v1/mcp` com JSON-RPC body:
+
+**`tools/list`**:
+1. Itera todos MCPs rodando (`gateway_manager.sessions`)
+2. Para cada MCP, faz `POST :{port}/mcp` com `tools/list`
+3. Se agente autenticado: filtra tools pela política (`PolicyService.check_tool_allowed`)
+4. Retorna JSON-RPC com lista combinada
+
+**`tools/call`**:
+1. Busca tool name no `_tool_map` (tool_name → catalog_id + mcp_id)
+2. Se agente autenticado: checa política (`check_tool_allowed`)
+3. Encaminha chamada para o MCP dono da tool
+4. Retorna resposta do MCP
+
+**`resources/list`**: agrega resources de todos MCPs.
+
+### Tool Map
+
+Mapeamento `tool_name → (catalog_id, mcp_id)` construído durante `tools/list`
+e usado em `tools/call` para rotear para o servidor correto.
 
 ---
 
-## Fase 4 — GPARS Compliance
+## Fase 4 — GPARS Error Codes ✅
 
-### O que muda
+### O que foi feito
 
-Implementar os error codes do padrão GPARS para compatibilidade com clientes que seguem o spec.
+Implementação dos error codes do padrão GPARS para compatibilidade com clientes
+que seguem o spec.
 
-### Códigos
+### Novos arquivos
 
-| Código | Significado | Quando retornar |
-|--------|-------------|-----------------|
-| `-31001` | `AUTHORIZATION_DENIED` | Tool não permitida pela policy |
-| `-31002` | `SERVER_UNAVAILABLE` | MCP server não está rodando |
+| Arquivo | Descrição |
+|---------|-----------|
+| `shared/errors.py` | Constantes `AUTHORIZATION_DENIED_CODE (-31001)`, `SERVER_UNAVAILABLE_CODE (-31002)` |
+| `infrastructure/mcp/gpars.py` | Helpers `authorization_denied()`, `server_unavailable()` |
+| `tests/test_gpars.py` | 7 testes (4 helpers, 3 integração gateway) |
 
-### Implementação
+### Arquivos modificados
 
-```python
-# shared/errors.py
-class GparsError(Exception):
-    AUTHORIZATION_DENIED = -31001
-    SERVER_UNAVAILABLE = -31002
+| Arquivo | Mudança |
+|---------|---------|
+| `infrastructure/mcp/unified_gateway.py` | Usa helpers GPARS em vez de `isError` content text |
+| `fastapi-server.spec` | `hiddenimports` para `infrastructure.mcp.gpars` |
 
-class AuthorizationDenied(GparsError):
-    code = -31001
-    message = "AUTHORIZATION_DENIED"
+### Códigos implementados
 
-class ServerUnavailable(GparsError):
-    code = -31002
-    message = "SERVER_UNAVAILABLE"
-```
+| Código | Nome | Quando retornar |
+|--------|------|----------------|
+| `-31001` | `AUTHORIZATION_DENIED` | Tool não permitida pela política do agente |
+| `-31002` | `SERVER_UNAVAILABLE` | Tool não encontrada, servidor caiu ou não respondeu |
 
-No unified gateway, capturar e retornar no formato JSON-RPC:
+### Formato JSON-RPC
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 1,
-    "error": {
-        "code": -31001,
-        "message": "AUTHORIZATION_DENIED",
-        "data": "Tool 'github_create_issue' is not allowed for agent 'cursor-1'"
-    }
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -31001,
+    "message": "Tool 'write_file' is not allowed for agent 'cursor-1'",
+    "data": { "gpars_code": "AUTHORIZATION_DENIED" }
+  }
 }
 ```
 
-### Arquivos a modificar
+---
+
+## Fase 5 — UI Desktop ✅
+
+### O que foi feito
+
+Refinamentos na interface desktop: informações de conexão do endpoint unificado,
+mini-lista de agents nas configurações, e client API tipado.
+
+### Arquivos modificados
 
 | Arquivo | Mudança |
 |---------|---------|
-| `shared/errors.py` | Novo — classes de erro GPARS |
-| `infrastructure/mcp/unified_gateway.py` | Retornar erros GPARS |
-| `infrastructure/mcp/gateway.py` | Retornar erros GPARS |
+| `apps/desktop/src/lib/api-client.ts` | Interfaces `Agent`, `AgentPolicy`, `ToolRule`, `ServerPolicy` + métodos `api.agents.*` e `api.policies.*` |
+| `apps/desktop/src/pages/settings/SettingsPage.tsx` | Cards "MCP Endpoint" (URL + config snippet) e "Agents" (mini-lista + link policy) |
+
+### Settings Page
+
+- Endpoint URL copiável: `http://127.0.0.1:8741/api/v1/mcp`
+- Template JSON para configurar MCP clients (Cursor, Claude Code, VS Code, OpenCode)
+- Lista de agents com link direto para policy de cada um
 
 ---
 
-## Fase 5 — Integração Desktop (UI)
+## Resumo Final
 
-### Novas páginas
+| Fase | Esforço | Feature | Arquivos novos | Arquivos modificados |
+|------|---------|---------|----------------|---------------------|
+| **1** | ~4 dias | Policy Engine | 12 | 8 |
+| **2** | ~2 dias | Identity & Auth | 4 | 3 + 1 teste |
+| **3** | ~3 dias | Unified Gateway | 1 | 5 |
+| **4** | ~1 dia | GPARS Errors | 3 | 2 + 1 teste |
+| **5** | ~1 dia | UI Desktop | 0 | 2 |
+| **Total** | ~11 dias | — | 20 | 20+ |
 
-```
-apps/desktop/src/pages/agents/
-  index.tsx        → listar agents
-  new.tsx          → criar agent + mostrar token
-  [id]/policies.tsx → editar políticas
+### Estado atual
 
-apps/desktop/src/pages/settings/
-  tokens.tsx       → gerenciar tokens
-```
+- **Backend**: 41/43 testes passando (2 pre-existing em `test_use_cases.py`)
+- **Frontend**: TypeScript build limpo
+- **DMG**: Bug de loading loop corrigido (hiddenimports)
 
-### Modificações no API client
+### Comparação com mcpharbour.ai
 
-```typescript
-// apps/desktop/src/lib/api-client.ts
-export interface Agent {
-  id: string;
-  name: string;
-  created_at: string;
-}
+| Funcionalidade | mcpharbour.ai | MCP Harbor |
+|---------------|---------------|------------|
+| Políticas por agente (server → tool → argument) | ✅ | ✅ |
+| Token Bearer (`harbour_sk_...` + SHA-256) | ✅ | ✅ |
+| Middleware de autenticação | ✅ | ✅ |
+| Endpoint MCP único | ✅ | ✅ |
+| Códigos de erro GPARS (-31001, -31002) | ✅ | ✅ |
+| UI Desktop (Tauri + React) | ❌ (CLI-only) | ✅ |
+| Docker para isolar MCPs | ❌ (stdio nativo) | ✅ |
+| Globs/regex em argument policies | ✅ | ❌ (exato apenas) |
+| CLI admin (`harbour` command) | ✅ | ❌ (UI desktop) |
 
-export interface Policy {
-  agent_id: string;
-  allowed_servers: {
-    server_id: string;
-    allowed_tools: { tool_name: string; allowed_arguments?: string[] }[] | null;
-  }[] | null;
-}
+### Próximos passos possíveis
 
-api.agents = {
-  list: () => request<Agent[]>("/api/v1/agents"),
-  create: (name: string) => request<Agent & { token: string }>("/api/v1/agents", {
-    method: "POST", body: JSON.stringify({ name }),
-  }),
-  delete: (id: string) => request(`/api/v1/agents/${id}`, { method: "DELETE" }),
-};
-
-api.policies = {
-  get: (agentId: string) => request<Policy>(`/api/v1/agents/${agentId}/policy`),
-  update: (agentId: string, policy: Policy) =>
-    request(`/api/v1/agents/${agentId}/policy`, {
-      method: "PUT", body: JSON.stringify(policy),
-    }),
-};
-```
-
----
-
-## Roadmap de Implementação
-
-| Fase | Esforço | Depende de | Descrição |
-|------|---------|------------|-----------|
-| **1 — Policy Engine** | 3-4 dias | Nenhuma | Entidades, repos, service, migration, rotas CRUD |
-| **2 — Auth + Tokens** | 2-3 dias | Fase 1 | Token generation, middleware, rotas agents |
-| **3 — Endpoint Único** | 4-5 dias | Fase 1 + 2 | Proxy MCP unificado, roteamento por policy |
-| **4 — GPARS** | 1 dia | Fase 3 | Error codes padronizados |
-| **5 — UI Desktop** | 3-4 dias | Fase 1 + 2 | Páginas Agents, Policies, Settings |
-
-**Total estimado: 13-17 dias**
-
----
-
-## Prioridade Sugerida
-
-1. **Fase 1 (Policy Engine)** — base de tudo, pode ser feito sem quebrar nada existente
-2. **Fase 2 (Auth)** — necessário para o endpoint único ser seguro
-3. **Fase 3 (Endpoint Único)** — a feature mais visível para o usuário
-4. **Fase 4 (GPARS)** — compatibilidade com spec
-5. **Fase 5 (UI)** — visual, pode ser feito em paralelo com Fase 3-4
-
----
-
-## Arquivos Finais (resumo do que será criado)
-
-```
-Novos:
-  services/api/src/domain/entities/policy.py
-  services/api/src/domain/repositories/policy_repository.py
-  services/api/src/domain/services/policy_service.py
-  services/api/src/domain/services/auth_service.py
-  services/api/src/infrastructure/auth/token_service.py
-  services/api/src/infrastructure/mcp/unified_gateway.py
-  services/api/src/presentation/api/middleware/auth.py
-  services/api/src/shared/errors.py
-  services/api/alembic/versions/002_add_policies.py
-  apps/desktop/src/pages/agents/
-  apps/desktop/src/pages/settings/tokens.tsx
-
-Modificados:
-  services/api/src/main.py                    → middleware auth
-  services/api/src/domain/entities/__init__.py
-  services/api/src/infrastructure/persistence/models.py
-  services/api/src/infrastructure/persistence/repositories.py
-  services/api/src/infrastructure/persistence/database.py
-  services/api/src/infrastructure/mcp/gateway.py
-  services/api/src/presentation/api/dependencies.py
-  services/api/src/presentation/api/v1/router.py
-  services/api/src/presentation/schemas/mcp_schemas.py
-  services/api/src/application/dto/mcp_dto.py
-  services/api/src/shared/result.py
-  apps/desktop/src/lib/api-client.ts
-```
+1. **Glob/regex em argument policies** — substituir match exato por
+   `fnmatch`/`re` no `PolicyEvaluationService`
+2. **SSE no `/api/v1/mcp`** — suporte a eventos SSE no gateway unificado
+3. **Token refresh/revoke** — expiração e renovação de tokens
+4. **Audit logging** — registro de todas as chamadas de tool por agente
+5. **CLI `harbour`** — CLI administrativo independente

@@ -3,9 +3,15 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
+class ArgumentRuleSchema(BaseModel):
+    arg_name: str
+    match_type: str = "glob"
+    pattern: str = "*"
+
+
 class ToolRuleSchema(BaseModel):
     tool_name: str
-    allowed_arguments: list[str] | None = None
+    argument_rules: list[ArgumentRuleSchema] | None = None
 
 
 class ServerPolicySchema(BaseModel):

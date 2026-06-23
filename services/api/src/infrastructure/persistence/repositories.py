@@ -31,6 +31,39 @@ def _agent_from_model(model: AgentModel) -> Agent:
     )
 
 
+def _argument_rules_to_json(rules: list | None) -> list[dict] | None:
+    if rules is None:
+        return None
+    return [
+        {
+            "arg_name": r.arg_name,
+            "match_type": r.match_type,
+            "pattern": r.pattern,
+        }
+        for r in rules
+    ]
+
+
+def _json_to_argument_rules(raw: list | None) -> list | None:
+    if raw is None:
+        return None
+    from domain.entities.policy import ArgumentRule
+
+    rules = []
+    for r in raw:
+        if isinstance(r, str):
+            rules.append(ArgumentRule(arg_name=r, match_type="glob", pattern="*"))
+        else:
+            rules.append(
+                ArgumentRule(
+                    arg_name=r.get("arg_name", r.get("allowed_arguments", "")),
+                    match_type=r.get("match_type", "glob"),
+                    pattern=r.get("pattern", "*"),
+                )
+            )
+    return rules
+
+
 def _policy_rules_to_json(policy: AgentPolicy) -> str:
     if policy.allowed_servers is None:
         return json.dumps({"allowed_servers": None})
@@ -42,7 +75,7 @@ def _policy_rules_to_json(policy: AgentPolicy) -> str:
             tools = [
                 {
                     "tool_name": t.tool_name,
-                    "allowed_arguments": t.allowed_arguments,
+                    "argument_rules": _argument_rules_to_json(t.argument_rules),
                 }
                 for t in s.allowed_tools
             ]
@@ -69,7 +102,9 @@ def _json_to_policy_rules(agent_id: str, raw: str) -> AgentPolicy:
             tools = [
                 ToolRule(
                     tool_name=t["tool_name"],
-                    allowed_arguments=t.get("allowed_arguments"),
+                    argument_rules=_json_to_argument_rules(
+                        t.get("argument_rules") or t.get("allowed_arguments")
+                    ),
                 )
                 for t in tools_raw
             ]

@@ -6,9 +6,16 @@ from shared.time import utc_now
 
 
 @dataclass(frozen=True)
+class ArgumentRule:
+    arg_name: str
+    match_type: str = "glob"
+    pattern: str = "*"
+
+
+@dataclass(frozen=True)
 class ToolRule:
     tool_name: str
-    allowed_arguments: list[str] | None = None
+    argument_rules: list[ArgumentRule] | None = None
 
 
 @dataclass(frozen=True)

@@ -5,7 +5,7 @@ import pytest
 
 from application.use_cases.agents import CreateAgentUseCase, DeleteAgentUseCase, ListAgentsUseCase
 from application.use_cases.policies import GetPolicyUseCase, UpdatePolicyUseCase
-from domain.entities.policy import Agent, AgentPolicy, ServerPolicy, ToolRule
+from domain.entities.policy import Agent, AgentPolicy, ArgumentRule, ServerPolicy, ToolRule
 from infrastructure.policy.policy_service import PolicyEvaluationService
 from shared.result import Failure, Success
 
@@ -101,7 +101,13 @@ async def test_update_policy():
             {
                 "server_id": "github",
                 "allowed_tools": [
-                    {"tool_name": "create_issue", "allowed_arguments": ["title", "body"]}
+                    {
+                        "tool_name": "create_issue",
+                        "argument_rules": [
+                            {"arg_name": "title", "match_type": "glob", "pattern": "*"},
+                            {"arg_name": "body", "match_type": "glob", "pattern": "*"},
+                        ],
+                    }
                 ],
             }
         ],
@@ -185,14 +191,14 @@ async def test_policy_denies_tool_not_listed():
 
 
 @pytest.mark.asyncio
-async def test_policy_allows_tool_with_any_arguments_when_allowed_arguments_is_none():
+async def test_policy_allows_tool_with_any_arguments_when_argument_rules_is_none():
     policy_repo = AsyncMock()
     policy_repo.get_by_agent_id.return_value = AgentPolicy(
         agent_id="agent-1",
         allowed_servers=[
             ServerPolicy(
                 server_id="github",
-                allowed_tools=[ToolRule(tool_name="create_issue", allowed_arguments=None)],
+                allowed_tools=[ToolRule(tool_name="create_issue", argument_rules=None)],
             )
         ],
     )
@@ -214,7 +220,7 @@ async def test_policy_denies_argument_not_allowed():
                 allowed_tools=[
                     ToolRule(
                         tool_name="create_issue",
-                        allowed_arguments=["title"],
+                        argument_rules=[ArgumentRule("title", "glob", "*")],
                     )
                 ],
             )
@@ -227,3 +233,151 @@ async def test_policy_denies_argument_not_allowed():
     )
 
     assert result is False
+
+
+@pytest.mark.asyncio
+async def test_policy_denies_argument_value_with_glob():
+    policy_repo = AsyncMock()
+    policy_repo.get_by_agent_id.return_value = AgentPolicy(
+        agent_id="agent-1",
+        allowed_servers=[
+            ServerPolicy(
+                server_id="filesystem",
+                allowed_tools=[
+                    ToolRule(
+                        tool_name="read_file",
+                        argument_rules=[ArgumentRule("path", "glob", "/home/projects/**")],
+                    )
+                ],
+            )
+        ],
+    )
+
+    service = PolicyEvaluationService(policy_repo)
+    result = await service.check_tool_allowed(
+        "agent-1",
+        "filesystem",
+        "read_file",
+        {"path": "/etc/passwd"},
+    )
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_policy_allows_argument_value_with_glob():
+    policy_repo = AsyncMock()
+    policy_repo.get_by_agent_id.return_value = AgentPolicy(
+        agent_id="agent-1",
+        allowed_servers=[
+            ServerPolicy(
+                server_id="filesystem",
+                allowed_tools=[
+                    ToolRule(
+                        tool_name="read_file",
+                        argument_rules=[ArgumentRule("path", "glob", "/home/projects/**")],
+                    )
+                ],
+            )
+        ],
+    )
+
+    service = PolicyEvaluationService(policy_repo)
+    result = await service.check_tool_allowed(
+        "agent-1",
+        "filesystem",
+        "read_file",
+        {"path": "/home/projects/myapp/main.py"},
+    )
+
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_policy_denies_argument_value_with_regex():
+    policy_repo = AsyncMock()
+    policy_repo.get_by_agent_id.return_value = AgentPolicy(
+        agent_id="agent-1",
+        allowed_servers=[
+            ServerPolicy(
+                server_id="database",
+                allowed_tools=[
+                    ToolRule(
+                        tool_name="query",
+                        argument_rules=[ArgumentRule("sql", "regex", r"^SELECT\s")],
+                    )
+                ],
+            )
+        ],
+    )
+
+    service = PolicyEvaluationService(policy_repo)
+    result = await service.check_tool_allowed(
+        "agent-1",
+        "database",
+        "query",
+        {"sql": "DROP TABLE users"},
+    )
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_policy_allows_argument_value_with_regex():
+    policy_repo = AsyncMock()
+    policy_repo.get_by_agent_id.return_value = AgentPolicy(
+        agent_id="agent-1",
+        allowed_servers=[
+            ServerPolicy(
+                server_id="database",
+                allowed_tools=[
+                    ToolRule(
+                        tool_name="query",
+                        argument_rules=[ArgumentRule("sql", "regex", r"^SELECT\s")],
+                    )
+                ],
+            )
+        ],
+    )
+
+    service = PolicyEvaluationService(policy_repo)
+    result = await service.check_tool_allowed(
+        "agent-1",
+        "database",
+        "query",
+        {"sql": "SELECT * FROM users"},
+    )
+
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_policy_allows_multiple_arguments_with_mixed_rules():
+    policy_repo = AsyncMock()
+    policy_repo.get_by_agent_id.return_value = AgentPolicy(
+        agent_id="agent-1",
+        allowed_servers=[
+            ServerPolicy(
+                server_id="github",
+                allowed_tools=[
+                    ToolRule(
+                        tool_name="create_issue",
+                        argument_rules=[
+                            ArgumentRule("title", "glob", "fix:*"),
+                            ArgumentRule("body", "exact", "auto-generated"),
+                        ],
+                    )
+                ],
+            )
+        ],
+    )
+
+    service = PolicyEvaluationService(policy_repo)
+    result = await service.check_tool_allowed(
+        "agent-1",
+        "github",
+        "create_issue",
+        {"title": "fix: login bug", "body": "auto-generated"},
+    )
+
+    assert result is True

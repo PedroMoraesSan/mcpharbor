@@ -8,9 +8,15 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Input } from "@/components/ui/input";
 import { Plus, Save, Trash2, Globe } from "lucide-react";
 
+interface ArgumentRule {
+  arg_name: string;
+  match_type: "glob" | "regex" | "exact";
+  pattern: string;
+}
+
 interface ToolRule {
   tool_name: string;
-  allowed_arguments: string[] | null;
+  argument_rules: ArgumentRule[] | null;
 }
 
 interface ServerPolicy {
@@ -84,7 +90,7 @@ export function AgentPolicyPage() {
     const tools = updated[serverIndex].allowed_tools || [];
     updated[serverIndex] = {
       ...updated[serverIndex],
-      allowed_tools: [...tools, { tool_name: "", allowed_arguments: null }],
+      allowed_tools: [...tools, { tool_name: "", argument_rules: null }],
     };
     setServers(updated);
   };
@@ -110,16 +116,44 @@ export function AgentPolicyPage() {
   const toggleAllArgs = (serverIndex: number, toolIndex: number, allowAll: boolean) => {
     const updated = [...servers];
     const tools = updated[serverIndex].allowed_tools || [];
-    tools[toolIndex] = { ...tools[toolIndex], allowed_arguments: allowAll ? null : [] };
+    tools[toolIndex] = { ...tools[toolIndex], argument_rules: allowAll ? null : [] };
     setServers(updated);
   };
 
-  const updateArgs = (serverIndex: number, toolIndex: number, args: string) => {
+  const addArgRule = (serverIndex: number, toolIndex: number) => {
     const updated = [...servers];
-    const tools = updated[serverIndex].allowed_tools || [];
-    tools[toolIndex] = {
-      ...tools[toolIndex],
-      allowed_arguments: args ? args.split(",").map((a) => a.trim()) : [],
+    const rules = updated[serverIndex].allowed_tools?.[toolIndex]?.argument_rules || [];
+    rules.push({ arg_name: "", match_type: "glob", pattern: "*" });
+    updated[serverIndex].allowed_tools![toolIndex] = {
+      ...updated[serverIndex].allowed_tools![toolIndex],
+      argument_rules: [...rules],
+    };
+    setServers(updated);
+  };
+
+  const removeArgRule = (serverIndex: number, toolIndex: number, ruleIndex: number) => {
+    const updated = [...servers];
+    const rules = updated[serverIndex].allowed_tools![toolIndex].argument_rules || [];
+    rules.splice(ruleIndex, 1);
+    updated[serverIndex].allowed_tools![toolIndex] = {
+      ...updated[serverIndex].allowed_tools![toolIndex],
+      argument_rules: rules.length > 0 ? rules : [],
+    };
+    setServers(updated);
+  };
+
+  const updateArgRule = (
+    serverIndex: number,
+    toolIndex: number,
+    ruleIndex: number,
+    field: keyof ArgumentRule,
+    value: string,
+  ) => {
+    const updated = [...servers];
+    const rule = updated[serverIndex].allowed_tools![toolIndex].argument_rules![ruleIndex];
+    updated[serverIndex].allowed_tools![toolIndex].argument_rules![ruleIndex] = {
+      ...rule,
+      [field]: value,
     };
     setServers(updated);
   };
@@ -235,22 +269,72 @@ export function AgentPolicyPage() {
                         <label className="flex items-center gap-2 text-xs">
                           <input
                             type="checkbox"
-                            checked={tool.allowed_arguments === null}
+                            checked={tool.argument_rules === null}
                             onChange={() =>
-                              toggleAllArgs(sIdx, tIdx, tool.allowed_arguments !== null)
+                              toggleAllArgs(sIdx, tIdx, tool.argument_rules !== null)
                             }
                             className="rounded"
                           />
                           Allow all arguments
                         </label>
 
-                        {tool.allowed_arguments !== null && (
-                          <Input
-                            placeholder="Allowed arguments (comma-separated, e.g., title, body)"
-                            value={tool.allowed_arguments.join(", ")}
-                            onChange={(e) => updateArgs(sIdx, tIdx, e.target.value)}
-                            className="font-mono text-xs"
-                          />
+                        {tool.argument_rules !== null && (
+                          <div className="space-y-2">
+                            {tool.argument_rules.length === 0 ? (
+                              <p className="text-xs text-muted-foreground italic">
+                                No argument rules — all arguments denied.
+                              </p>
+                            ) : (
+                              tool.argument_rules.map((rule, aIdx) => (
+                                <div
+                                  key={aIdx}
+                                  className="flex items-center gap-2 rounded border border-border/30 p-2"
+                                >
+                                  <Input
+                                    placeholder="arg_name"
+                                    value={rule.arg_name}
+                                    onChange={(e) =>
+                                      updateArgRule(sIdx, tIdx, aIdx, "arg_name", e.target.value)
+                                    }
+                                    className="w-28 font-mono text-xs"
+                                  />
+                                  <select
+                                    value={rule.match_type}
+                                    onChange={(e) =>
+                                      updateArgRule(sIdx, tIdx, aIdx, "match_type", e.target.value)
+                                    }
+                                    className="rounded border border-border/50 bg-background px-2 py-1 text-xs font-mono"
+                                  >
+                                    <option value="glob">glob</option>
+                                    <option value="regex">regex</option>
+                                    <option value="exact">exact</option>
+                                  </select>
+                                  <Input
+                                    placeholder="pattern"
+                                    value={rule.pattern}
+                                    onChange={(e) =>
+                                      updateArgRule(sIdx, tIdx, aIdx, "pattern", e.target.value)
+                                    }
+                                    className="flex-1 font-mono text-xs"
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeArgRule(sIdx, tIdx, aIdx)}
+                                  >
+                                    <Trash2 className="h-3 w-3 text-destructive" />
+                                  </Button>
+                                </div>
+                              ))
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => addArgRule(sIdx, tIdx)}
+                            >
+                              <Plus className="mr-1 h-3 w-3" /> Add Arg Rule
+                            </Button>
+                          </div>
                         )}
                       </div>
                     ))}

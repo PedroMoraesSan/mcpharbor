@@ -1,9 +1,24 @@
+import fnmatch
+import re
+
 from domain.entities.policy import AgentPolicy
 from domain.repositories.policy_repository import PolicyRepository
 from domain.services.policy_service import PolicyService as PolicyServiceABC
 from shared.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _arg_value_allowed(value: str, rule) -> bool:
+    match rule.match_type:
+        case "exact":
+            return value == rule.pattern
+        case "regex":
+            return bool(re.match(rule.pattern, value))
+        case "glob":
+            return fnmatch.fnmatch(value, rule.pattern)
+        case _:
+            return fnmatch.fnmatch(value, rule.pattern)
 
 
 class PolicyEvaluationService(PolicyServiceABC):
@@ -55,20 +70,38 @@ class PolicyEvaluationService(PolicyServiceABC):
             )
             return False
 
-        if tool.allowed_arguments is None:
+        if tool.argument_rules is None:
             return True
 
         if arguments is None:
             return False
 
-        for arg in arguments:
-            if arg not in tool.allowed_arguments:
+        for arg_name, arg_value in arguments.items():
+            rule = next(
+                (r for r in tool.argument_rules if r.arg_name == arg_name),
+                None,
+            )
+            if rule is None:
                 logger.warning(
                     "policy_denied_argument",
                     agent_id=agent_id,
                     server_id=server_id,
                     tool_name=tool_name,
-                    argument=arg,
+                    argument=arg_name,
+                    reason="not_in_rules",
+                )
+                return False
+
+            if not _arg_value_allowed(str(arg_value), rule):
+                logger.warning(
+                    "policy_denied_argument_value",
+                    agent_id=agent_id,
+                    server_id=server_id,
+                    tool_name=tool_name,
+                    argument=arg_name,
+                    value=arg_value,
+                    pattern=rule.pattern,
+                    match_type=rule.match_type,
                 )
                 return False
 

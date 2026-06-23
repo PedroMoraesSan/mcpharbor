@@ -69,6 +69,25 @@ export const api = {
     request<LocalConnectionInfo>(`/api/v1/mcps/${id}/local-connection`),
   dashboard: () => request<DashboardStats>("/api/v1/dashboard/stats"),
   settings: () => request<Settings>("/api/v1/settings"),
+  agents: {
+    list: () => request<Agent[]>("/api/v1/agents"),
+    create: (name: string) =>
+      request<Agent & { token: string }>("/api/v1/agents", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      }),
+    delete: (id: string) =>
+      request<{ message: string }>(`/api/v1/agents/${id}`, { method: "DELETE" }),
+  },
+  policies: {
+    get: (agentId: string) =>
+      request<AgentPolicy>(`/api/v1/agents/${agentId}/policy`),
+    update: (agentId: string, policy: Omit<AgentPolicy, "agent_id">) =>
+      request<AgentPolicy>(`/api/v1/agents/${agentId}/policy`, {
+        method: "PUT",
+        body: JSON.stringify(policy),
+      }),
+  },
 };
 
 export interface CatalogEntry {
@@ -125,6 +144,33 @@ export interface Settings {
   docker_running: boolean;
   docker_message: string;
   docker_socket: string | null;
+}
+
+export interface Agent {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface ArgumentRule {
+  arg_name: string;
+  match_type: "glob" | "regex" | "exact";
+  pattern: string;
+}
+
+export interface ToolRule {
+  tool_name: string;
+  argument_rules: ArgumentRule[] | null;
+}
+
+export interface ServerPolicy {
+  server_id: string;
+  allowed_tools: ToolRule[] | null;
+}
+
+export interface AgentPolicy {
+  agent_id: string;
+  allowed_servers: ServerPolicy[] | null;
 }
 
 export interface LocalConnectionInfo {

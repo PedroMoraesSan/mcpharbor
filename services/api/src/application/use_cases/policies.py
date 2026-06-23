@@ -32,7 +32,16 @@ class GetPolicyUseCase:
                 tools = [
                     {
                         "tool_name": t.tool_name,
-                        "allowed_arguments": t.allowed_arguments,
+                        "argument_rules": [
+                            {
+                                "arg_name": r.arg_name,
+                                "match_type": r.match_type,
+                                "pattern": r.pattern,
+                            }
+                            for r in t.argument_rules
+                        ]
+                        if t.argument_rules is not None
+                        else None,
                     }
                     for t in s.allowed_tools
                 ]
@@ -55,13 +64,33 @@ class UpdatePolicyUseCase:
             for s in allowed_servers:
                 tools = None
                 if s.get("allowed_tools") is not None:
-                    tools = [
-                        ToolRule(
-                            tool_name=t["tool_name"],
-                            allowed_arguments=t.get("allowed_arguments"),
+                    tools = []
+                    for t in s["allowed_tools"]:
+                        raw_rules = t.get("argument_rules") or t.get("allowed_arguments")
+                        argument_rules = None
+                        if raw_rules is not None:
+                            from domain.entities.policy import ArgumentRule
+
+                            argument_rules = []
+                            for rr in raw_rules:
+                                if isinstance(rr, str):
+                                    argument_rules.append(
+                                        ArgumentRule(arg_name=rr, match_type="glob", pattern="*")
+                                    )
+                                else:
+                                    argument_rules.append(
+                                        ArgumentRule(
+                                            arg_name=rr.get("arg_name", ""),
+                                            match_type=rr.get("match_type", "glob"),
+                                            pattern=rr.get("pattern", "*"),
+                                        )
+                                    )
+                        tools.append(
+                            ToolRule(
+                                tool_name=t["tool_name"],
+                                argument_rules=argument_rules,
+                            )
                         )
-                        for t in s["allowed_tools"]
-                    ]
                 servers.append(ServerPolicy(server_id=s["server_id"], allowed_tools=tools))
 
         policy = AgentPolicy(agent_id=agent_id, allowed_servers=servers)
