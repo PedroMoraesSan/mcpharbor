@@ -3,7 +3,7 @@
 Docker Desktop for MCPs — install, configure, and run MCP servers without touching the terminal.
 
 <p align="center">
-  <img src="docs/harbor-image.png" alt="MCP Harbor" width="600">
+  <img src="docs/harbor-image.png" alt="MCP Harbor" width="900">
 </p>
 
 ## Features
