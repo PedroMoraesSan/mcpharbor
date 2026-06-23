@@ -1,12 +1,13 @@
 import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 
 from fastapi import Request
 
+from infrastructure.mcp.gateway import gateway_manager
 from presentation.api.dependencies import UseCaseContainer, get_use_cases
 from presentation.schemas.mcp_schemas import (
     AgentCreateRequest,
@@ -262,6 +263,36 @@ async def update_policy(
 async def unified_mcp(body: dict, request: Request, uc: UseCaseContainer = Depends(get_use_cases)):
     agent = getattr(request.state, "agent", None)
     return await uc.unified_gateway.handle_jsonrpc(body, agent)
+
+
+@router.get("/mcp/{mcp_id}/sse")
+async def mcp_sse(mcp_id: UUID, uc: UseCaseContainer = Depends(get_use_cases)):
+    session = gateway_manager.get(mcp_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="MCP not running")
+    return StreamingResponse(
+        uc.unified_gateway.stream_sse(mcp_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/mcp/{mcp_id}/sse/messages")
+async def mcp_sse_messages(
+    mcp_id: UUID,
+    body: dict,
+    session_id: str = Query(...),
+    uc: UseCaseContainer = Depends(get_use_cases),
+):
+    session = gateway_manager.get(mcp_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="MCP not running")
+    await uc.unified_gateway.handle_sse_message(mcp_id, session_id, body)
+    return Response(status_code=202)
 
 
 @router.get("/dashboard/stats", response_model=DashboardStatsResponse)

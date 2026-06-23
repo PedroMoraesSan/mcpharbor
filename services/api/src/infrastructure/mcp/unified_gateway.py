@@ -21,6 +21,45 @@ class UnifiedMcpGateway:
         self._client = httpx.AsyncClient(base_url="http://127.0.0.1", timeout=_MCP_HTTP_TIMEOUT)
         self._tool_map: dict[str, tuple[str, UUID]] = {}
 
+    async def stream_sse(self, mcp_id: UUID):
+        session = gateway_manager.get(mcp_id)
+        if not session:
+            return
+
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream("GET", f"http://127.0.0.1:{session.port}/sse") as resp:
+                async for line in resp.aiter_lines():
+                    if line.startswith("data: ") and "/messages/" in line:
+                        line = line.replace(
+                            "/messages/",
+                            f"/api/v1/mcp/{mcp_id}/sse/messages/",
+                            1,
+                        )
+                    yield line + "\n"
+
+    async def handle_sse_message(
+        self, mcp_id: UUID, session_id: str, body: dict
+    ) -> dict | None:
+        session = gateway_manager.get(mcp_id)
+        if not session:
+            return None
+
+        try:
+            resp = await self._client.post(
+                f":{session.port}/messages/?session_id={session_id}",
+                json=body,
+            )
+            resp.raise_for_status()
+            return None
+        except Exception as exc:
+            logger.warning(
+                "sse_message_failed",
+                mcp_id=str(mcp_id),
+                session_id=session_id,
+                error=str(exc),
+            )
+            return {"error": str(exc)}
+
     async def handle_jsonrpc(self, body: dict, agent: AgentContext | None) -> dict:
         method = body.get("method", "")
         params = body.get("params", {})
