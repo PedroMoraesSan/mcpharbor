@@ -1,5 +1,6 @@
 import { DocsArticle, DocsPageHeader, DocsSection } from "@/components/docs/docs-article";
 import { DocsCode } from "@/components/docs/docs-code";
+import { DocsCallout } from "@/components/docs/docs-callout";
 
 export function DocsArchitecturePage() {
   return (
@@ -72,10 +73,27 @@ Authorization: Bearer harbour_sk_xxx`}
 
       <DocsSection title="Códigos de erro GPARS">
         <p>
-          Quando uma chamada é negada pela política ou o servidor está indisponível,
-          o gateway retorna erros no formato GPARS (Google's Provider Access
-          Restriction Standards):
+          GPARS (General-Purpose Agent Reference Standard) define um formato
+          padronizado para agentes descobrirem seus limites de permissão — o
+          agente tenta uma operação e recebe uma negação com código específico.
         </p>
+        <p>
+          Quando uma chamada é negada pela política ou o servidor está indisponível,
+          o gateway retorna erros no formato GPARS:
+        </p>
+        <DocsCallout>
+          O padrão GPARS é definido como parte do ecossistema de padrões para agentes
+          de IA. Consulte a{" "}
+          <a
+            href="https://gpars.io/#what-is-gpars"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 decoration-muted-foreground/30"
+          >
+            especificação GPARS v0.1
+          </a>{" "}
+          para mais detalhes sobre a separação entre plano de cognição e plano de ação.
+        </DocsCallout>
         <DocsCode
           title="Authorization denied"
           language="json"
