@@ -49,9 +49,9 @@ async def test_stream_sse_proxies_lines(mock_httpx, mock_gateway_manager):
     gateway = UnifiedMcpGateway(AsyncMock())
     chunks = [c async for c in gateway.stream_sse(mcp_id)]
 
-    assert 'data: /api/v1/mcp/' in chunks[1]
+    assert "data: /api/v1/mcp/" in chunks[1]
     assert str(mcp_id) in chunks[1]
-    assert '/sse/messages/' in chunks[1]
+    assert "/sse/messages/" in chunks[1]
     assert '{"ok": true}' in chunks[3]
 
 

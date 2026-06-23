@@ -45,10 +45,7 @@ def install_wrapper_script() -> str:
 
     if uses_sidecar_cli():
         sidecar = sys.executable
-        script = (
-            "#!/usr/bin/env bash\n"
-            f'exec "{sidecar}" --run-wrapper "$1"\n'
-        )
+        script = f'#!/usr/bin/env bash\nexec "{sidecar}" --run-wrapper "$1"\n'
         wrapper_file.write_text(script)
     else:
         wrapper_file.write_text(f"#!{sys.executable}\n{_WRAPPER_BODY}")

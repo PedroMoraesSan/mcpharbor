@@ -249,9 +249,7 @@ async def update_policy(
     uc: UseCaseContainer = Depends(get_use_cases),
 ):
     raw = (
-        [s.model_dump() for s in body.allowed_servers]
-        if body.allowed_servers is not None
-        else None
+        [s.model_dump() for s in body.allowed_servers] if body.allowed_servers is not None else None
     )
     result = await uc.update_policy.execute(agent_id, raw)
     dto = _handle_result(result)

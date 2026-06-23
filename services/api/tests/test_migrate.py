@@ -62,10 +62,7 @@ def test_upgrade_stamps_existing_sqlite_schema_without_version():
                 )
             )
             conn.execute(
-                text(
-                    "CREATE TABLE alembic_version "
-                    "(version_num VARCHAR(32) NOT NULL PRIMARY KEY)"
-                )
+                text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)")
             )
 
         asyncio.run(upgrade_database(url))

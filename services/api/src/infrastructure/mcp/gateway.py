@@ -67,9 +67,7 @@ async def _run_streamable_http_gateway(
         async with AsyncExitStack() as stack:
             logger.info("gateway_step", mcp_id=str(mcp_id), step="stdio_connect")
             _devnull = stack.enter_context(open(os.devnull, "w"))  # noqa: SIM115
-            read, write = await stack.enter_async_context(
-                stdio_client(params, errlog=_devnull)
-            )
+            read, write = await stack.enter_async_context(stdio_client(params, errlog=_devnull))
             logger.info("gateway_step", mcp_id=str(mcp_id), step="session_init")
             client = await stack.enter_async_context(ClientSession(read, write))
             logger.info("gateway_step", mcp_id=str(mcp_id), step="proxy_create")

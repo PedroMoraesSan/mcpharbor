@@ -26,21 +26,20 @@ class UnifiedMcpGateway:
         if not session:
             return
 
-        async with httpx.AsyncClient(timeout=None) as client, client.stream(
-            "GET", f"http://127.0.0.1:{session.port}/sse"
-        ) as resp:
-                async for line in resp.aiter_lines():
-                    if line.startswith("data: ") and "/messages/" in line:
-                        line = line.replace(
-                            "/messages/",
-                            f"/api/v1/mcp/{mcp_id}/sse/messages/",
-                            1,
-                        )
-                    yield line + "\n"
+        async with (
+            httpx.AsyncClient(timeout=None) as client,
+            client.stream("GET", f"http://127.0.0.1:{session.port}/sse") as resp,
+        ):
+            async for line in resp.aiter_lines():
+                if line.startswith("data: ") and "/messages/" in line:
+                    line = line.replace(
+                        "/messages/",
+                        f"/api/v1/mcp/{mcp_id}/sse/messages/",
+                        1,
+                    )
+                yield line + "\n"
 
-    async def handle_sse_message(
-        self, mcp_id: UUID, session_id: str, body: dict
-    ) -> dict | None:
+    async def handle_sse_message(self, mcp_id: UUID, session_id: str, body: dict) -> dict | None:
         session = gateway_manager.get(mcp_id)
         if not session:
             return None
@@ -90,9 +89,7 @@ class UnifiedMcpGateway:
                     if name:
                         self._tool_map[name] = (session.catalog_id, mcp_id)
             except Exception as exc:
-                logger.warning(
-                    "tool_map_refresh_failed", mcp_id=str(mcp_id), error=str(exc)
-                )
+                logger.warning("tool_map_refresh_failed", mcp_id=str(mcp_id), error=str(exc))
 
     async def _call_mcp(self, session: GatewaySession, body: dict) -> dict | None:
         try:
@@ -164,12 +161,15 @@ class UnifiedMcpGateway:
         if not session:
             return server_unavailable(req_id, "Server has been removed")
 
-        data = await self._call_mcp(session, {
-            "method": "tools/call",
-            "id": 1,
-            "jsonrpc": JSONRPC_VERSION,
-            "params": params,
-        })
+        data = await self._call_mcp(
+            session,
+            {
+                "method": "tools/call",
+                "id": 1,
+                "jsonrpc": JSONRPC_VERSION,
+                "params": params,
+            },
+        )
         if data is None:
             return server_unavailable(req_id, f"Server '{catalog_id}' did not respond")
 

@@ -357,10 +357,8 @@ class SQLAlchemyPolicyRepository(PolicyRepository):
 
     async def save(self, policy: AgentPolicy) -> AgentPolicy:
         agent_uuid = UUID(policy.agent_id)
-        model = (
-            await self._session.scalar(
-                select(PolicyModel).where(PolicyModel.agent_id == agent_uuid)
-            )
+        model = await self._session.scalar(
+            select(PolicyModel).where(PolicyModel.agent_id == agent_uuid)
         )
         if model is None:
             model = PolicyModel(agent_id=agent_uuid)

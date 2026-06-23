@@ -25,9 +25,7 @@ async def test_list_agents_empty():
 async def test_list_agents():
     agent_id = uuid4()
     agent_repo = AsyncMock()
-    agent_repo.list_all.return_value = [
-        Agent(id=agent_id, name="test-agent", token_hash="abc123")
-    ]
+    agent_repo.list_all.return_value = [Agent(id=agent_id, name="test-agent", token_hash="abc123")]
 
     use_case = ListAgentsUseCase(agent_repo)
     result = await use_case.execute()
@@ -133,9 +131,7 @@ async def test_policy_allows_all_when_no_policy():
 @pytest.mark.asyncio
 async def test_policy_allows_all_servers_when_allowed_servers_is_none():
     policy_repo = AsyncMock()
-    policy_repo.get_by_agent_id.return_value = AgentPolicy(
-        agent_id="agent-1", allowed_servers=None
-    )
+    policy_repo.get_by_agent_id.return_value = AgentPolicy(agent_id="agent-1", allowed_servers=None)
 
     service = PolicyEvaluationService(policy_repo)
     result = await service.check_tool_allowed("agent-1", "github", "create_issue")

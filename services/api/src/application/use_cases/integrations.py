@@ -37,9 +37,7 @@ class ConnectCursorUseCase:
             return Failure(error="MCP not found", code="not_found")
 
         entry = await self._registry.get_by_id(mcp.catalog_id)
-        required_keys = (
-            {c.key for c in entry.credentials if c.required} if entry else set()
-        )
+        required_keys = {c.key for c in entry.credentials if c.required} if entry else set()
 
         creds = await self._credential_repo.get_by_mcp_id(mcp_id)
         saved_keys = {c.key_name for c in creds}
