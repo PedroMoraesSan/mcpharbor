@@ -2,7 +2,9 @@
 
 Docker Desktop for MCPs — install, configure, and run MCP servers without touching the terminal.
 
-[![CI](https://github.com/morpheus/mcpharbour/actions/workflows/ci.yml/badge.svg)](https://github.com/morpheus/mcpharbour/actions/workflows/ci.yml)
+<p align="center">
+  <img src="docs/harbor-image.png" alt="MCP Harbor" width="600">
+</p>
 
 ## Features
 
