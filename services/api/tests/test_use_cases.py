@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -12,7 +12,6 @@ from domain.entities.credential import Credential
 from domain.entities.mcp import MCP
 from domain.value_objects.enums import MCPStatus
 from infrastructure.integration.cursor_service import CursorIntegrationService
-from infrastructure.mcp.gateway import GatewaySession
 from shared.result import Failure, Success
 
 
