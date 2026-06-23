@@ -60,9 +60,7 @@ def _stamp_sqlite_if_schema_present(database_url: str) -> None:
     with engine.connect() as conn:
         tables = {
             row[0]
-            for row in conn.execute(
-                text("SELECT name FROM sqlite_master WHERE type='table'")
-            )
+            for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
         }
         if "installed_mcps" not in tables:
             return

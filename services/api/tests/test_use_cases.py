@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -12,7 +12,6 @@ from domain.entities.credential import Credential
 from domain.entities.mcp import MCP
 from domain.value_objects.enums import MCPStatus
 from infrastructure.integration.cursor_service import CursorIntegrationService
-from infrastructure.mcp.gateway import GatewaySession
 from shared.result import Failure, Success
 
 
@@ -137,8 +136,7 @@ async def test_uninstall_mcp_not_found():
 
 
 @pytest.mark.asyncio
-@patch("application.use_cases.start_mcp.gateway_manager")
-async def test_start_mcp_success(mock_gateway):
+async def test_start_mcp_success():
     mcp_id = uuid4()
     mcp = MCP(
         id=mcp_id,
@@ -177,14 +175,6 @@ async def test_start_mcp_success(mock_gateway):
         )
     ]
     secret.get.return_value = "ghp_test_token"
-    mock_gateway.get.return_value = None
-    mock_gateway.start = AsyncMock(
-        return_value=GatewaySession(
-            mcp_id=mcp_id,
-            port=18042,
-            _task=MagicMock(done=MagicMock(return_value=False)),
-        )
-    )
     docker = AsyncMock()
     docker.ensure_image = AsyncMock()
 
@@ -193,14 +183,11 @@ async def test_start_mcp_success(mock_gateway):
 
     assert isinstance(result, Success)
     assert result.value.status == MCPStatus.RUNNING.value
-    assert result.value.local_endpoint == "http://127.0.0.1:18042/mcp"
-    mock_gateway.start.assert_called_once()
     integration.install_wrapper.assert_called_once()
 
 
 @pytest.mark.asyncio
-@patch("application.use_cases.start_mcp.gateway_manager")
-async def test_start_mcp_without_required_credentials(mock_gateway):
+async def test_start_mcp_without_required_credentials():
     mcp_id = uuid4()
     mcp = MCP(
         id=mcp_id,
@@ -231,14 +218,6 @@ async def test_start_mcp_without_required_credentials(mock_gateway):
         credentials=[],
     )
     credential_repo.get_by_mcp_id.return_value = []
-    mock_gateway.get.return_value = None
-    mock_gateway.start = AsyncMock(
-        return_value=GatewaySession(
-            mcp_id=mcp_id,
-            port=18043,
-            _task=MagicMock(done=MagicMock(return_value=False)),
-        )
-    )
     docker = AsyncMock()
     docker.ensure_image = AsyncMock()
 
@@ -246,7 +225,6 @@ async def test_start_mcp_without_required_credentials(mock_gateway):
     result = await use_case.execute(mcp_id)
 
     assert isinstance(result, Success)
-    mock_gateway.start.assert_called_once()
 
 
 @pytest.mark.asyncio

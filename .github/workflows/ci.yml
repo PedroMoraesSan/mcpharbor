@@ -48,5 +48,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            patchelf
+      - name: Create dummy sidecar for cargo check
+        run: |
+          touch apps/desktop/src-tauri/binaries/mcpharbour-api-x86_64-unknown-linux-gnu
+          chmod +x apps/desktop/src-tauri/binaries/mcpharbour-api-x86_64-unknown-linux-gnu
       - name: Check Tauri crate
         run: cd apps/desktop/src-tauri && cargo check

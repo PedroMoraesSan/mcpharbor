@@ -31,6 +31,8 @@ STARTUP_TIMEOUT_SECONDS = 120.0
 @dataclass
 class GatewaySession:
     mcp_id: UUID
+    catalog_id: str
+    name: str
     port: int
     _task: asyncio.Task[None] = field(repr=False)
 
@@ -64,11 +66,8 @@ async def _run_streamable_http_gateway(
     try:
         async with AsyncExitStack() as stack:
             logger.info("gateway_step", mcp_id=str(mcp_id), step="stdio_connect")
-            _devnull = open(os.devnull, "w")
-            stack.callback(_devnull.close)
-            read, write = await stack.enter_async_context(
-                stdio_client(params, errlog=_devnull)
-            )
+            _devnull = stack.enter_context(open(os.devnull, "w"))  # noqa: SIM115
+            read, write = await stack.enter_async_context(stdio_client(params, errlog=_devnull))
             logger.info("gateway_step", mcp_id=str(mcp_id), step="session_init")
             client = await stack.enter_async_context(ClientSession(read, write))
             logger.info("gateway_step", mcp_id=str(mcp_id), step="proxy_create")
@@ -163,9 +162,15 @@ class McpGatewayManager:
             "Ensure Docker Desktop is running and try again."
         )
 
+    @property
+    def sessions(self) -> dict[UUID, GatewaySession]:
+        return dict(self._sessions)
+
     async def start(
         self,
         mcp_id: UUID,
+        catalog_id: str,
+        name: str,
         command: str,
         args: list[str],
         env: dict[str, str],
@@ -182,7 +187,9 @@ class McpGatewayManager:
         )
 
         task = asyncio.create_task(
-            _run_streamable_http_gateway(mcp_id=mcp_id, port=port, command=command, args=args, env=env),
+            _run_streamable_http_gateway(
+                mcp_id=mcp_id, port=port, command=command, args=args, env=env
+            ),
             name=f"mcp-gateway-{mcp_id}",
         )
 
@@ -194,7 +201,9 @@ class McpGatewayManager:
                 await task
             raise
 
-        session = GatewaySession(mcp_id=mcp_id, port=port, _task=task)
+        session = GatewaySession(
+            mcp_id=mcp_id, catalog_id=catalog_id, name=name, port=port, _task=task
+        )
         self._sessions[mcp_id] = session
         logger.info(
             "mcp_gateway_ready",

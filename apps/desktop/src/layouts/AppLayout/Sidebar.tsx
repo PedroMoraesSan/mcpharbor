@@ -5,7 +5,9 @@ import {
   Library,
   ScrollText,
   Plug,
+  Shield,
   Settings,
+  BookOpen,
 } from "lucide-react";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { cn } from "@/lib/utils";
@@ -16,7 +18,9 @@ const navItems = [
   { to: "/catalog", label: "Catalog", icon: Library },
   { to: "/logs", label: "Logs", icon: ScrollText },
   { to: "/integrations", label: "Integrations", icon: Plug },
+  { to: "/agents", label: "Access Control", icon: Shield },
   { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/docs", label: "Docs", icon: BookOpen },
 ];
 
 export function Sidebar() {

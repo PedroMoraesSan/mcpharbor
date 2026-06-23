@@ -1,6 +1,8 @@
+from contextlib import suppress
+
 from application.dto.mcp_dto import MCPDTO
-from application.use_cases.start_mcp import StartMCPUseCase
 from application.use_cases.list_catalog import _to_mcp_dto
+from application.use_cases.start_mcp import StartMCPUseCase
 from domain.repositories.credential_repository import CredentialRepository
 from domain.repositories.mcp_repository import MCPRepository
 from domain.value_objects.enums import MCPStatus
@@ -26,10 +28,8 @@ class StopMCPUseCase:
         if not mcp.can_stop():
             return Failure(error=f"Cannot stop MCP in status '{mcp.status}'", code="invalid_state")
 
-        try:
+        with suppress(Exception):
             await gateway_manager.stop(mcp_id)
-        except Exception:
-            pass
 
         creds = await self._credential_repo.get_by_mcp_id(mcp_id)
         mcp.status = MCPStatus.STOPPED
@@ -55,7 +55,9 @@ class RestartMCPUseCase:
             return Failure(error="MCP not found", code="not_found")
 
         if mcp.status not in (MCPStatus.RUNNING, MCPStatus.ERROR):
-            return Failure(error=f"Cannot restart MCP in status '{mcp.status}'", code="invalid_state")
+            return Failure(
+                error=f"Cannot restart MCP in status '{mcp.status}'", code="invalid_state"
+            )
 
         await gateway_manager.stop(mcp_id)
         mcp.status = MCPStatus.STOPPED
